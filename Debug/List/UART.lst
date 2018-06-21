@@ -1,0 +1,134 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 15/Nov/2017  10:59:37
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  E:\AirTone\AirToneMLL\DRIVER\Memory\UART.c
+#    Command line =  
+#        E:\AirTone\AirToneMLL\DRIVER\Memory\UART.c -e -Oh --debug --code_model
+#        medium --data_model medium -o E:\AirTone\AirToneMLL\Debug\Obj\
+#        --dlib_config "F:\IAR Systems\Embedded Workbench
+#        7.0\stm8\LIB\dlstm8mmn.h" -lcN E:\AirTone\AirToneMLL\Debug\List\ -I
+#        E:\AirTone\AirToneMLL\BSP\ -I E:\AirTone\AirToneMLL\USER\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\ -I E:\AirTone\AirToneMLL\DRIVER\Memory\
+#        -I E:\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        E:\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  E:\AirTone\AirToneMLL\Debug\List\UART.lst
+#    Object file  =  E:\AirTone\AirToneMLL\Debug\Obj\UART.o
+#
+###############################################################################
+
+E:\AirTone\AirToneMLL\DRIVER\Memory\UART.c
+      1          /*******************************************************************************
+      2           * Brief:
+      3           * Author:  taotsi
+      4           * Update:  2017.04.26
+      5           *******************************************************************************/
+      6          
+      7          #include "UART.h"
+      8          
+      9          /* Functions ------------------------------------------------------------------*/
+     10          /**
+     11            * Param: baud: can be fsysclk/16 at most.
+     12            *
+     13            */
+     14          void UART_Config(uint16_t baud)
+     15          {
+     16              //disableInterrupts();
+     17          
+     18              CLK_PeripheralClockConfig(CLK_Peripheral_USART1 , ENABLE);
+     19          
+     20              USART_Init(USART1,
+     21                         baud,
+     22                         USART_WordLength_8b,
+     23                         USART_StopBits_1,
+     24                         USART_Parity_No,
+     25                         (USART_Mode_Rx | USART_Mode_Tx));
+     26          
+     27              //USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);
+     28              USART_Cmd(USART1, ENABLE);
+     29          
+     30              //enableInterrupts();
+     31          }
+     32          
+     33          
+     34          /**
+     35            *
+     36            *
+     37            */
+     38          void UART_Send_Byte(uint8_t byte)
+     39          {
+     40              while(USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+     41              USART_SendData8(USART1, byte);
+     42              while(USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
+     43          }
+     44          
+     45          
+     46          /**
+     47            *
+     48            *
+     49            */
+     50          uint8_t UART_Receive_Byte()
+     51          {
+     52              while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
+     53              return USART_ReceiveData8(USART1);
+     54          }
+     55          
+     56          
+     57          /**
+     58            *
+     59            *
+     60            */
+     61          void UART_Send_String(uint16_t nBytes, uint8_t string[])
+     62          {
+     63              uint8_t i = 0;
+     64              for(i = 0; i<nBytes; i++)
+     65              {
+     66                  while(USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+     67                  USART_SendData8(USART1, string[i]);
+     68              }
+     69              while(USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
+     70          }
+     71          
+     72          
+     73          /**
+     74            *
+     75            *
+     76            */
+     77          void UART_Receive_String(uint16_t nBytes, uint8_t string[])
+     78          {
+     79              uint8_t i = 0;
+     80              for(i = 0; i<nBytes; i++)
+     81              {
+     82                  while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
+     83                  string[i] = USART_ReceiveData8(USART1);
+     84              }
+     85          }
+     86          
+     87          /* ----------------------------- End of file --------------------------------- */
+     88          /*******************************************************************************/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+      10  ??Subroutine2_0
+       4  ?Subroutine0
+      11  ?Subroutine1
+      52  UART_Config
+      13  UART_Receive_Byte
+      38  UART_Receive_String
+      38  UART_Send_Byte
+      52  UART_Send_String
+
+ 
+ 218 bytes in section .far_func.text
+ 
+ 218 bytes of CODE memory
+
+Errors: none
+Warnings: 1

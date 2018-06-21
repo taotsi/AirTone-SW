@@ -1,0 +1,1414 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 15/Nov/2017  10:59:34
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  E:\AirTone\AirToneMLL\DRIVER\AK4637\AK4637.c
+#    Command line =  
+#        E:\AirTone\AirToneMLL\DRIVER\AK4637\AK4637.c -e -Oh --debug
+#        --code_model medium --data_model medium -o
+#        E:\AirTone\AirToneMLL\Debug\Obj\ --dlib_config "F:\IAR
+#        Systems\Embedded Workbench 7.0\stm8\LIB\dlstm8mmn.h" -lcN
+#        E:\AirTone\AirToneMLL\Debug\List\ -I E:\AirTone\AirToneMLL\BSP\ -I
+#        E:\AirTone\AirToneMLL\USER\ -I E:\AirTone\AirToneMLL\DRIVER\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Memory\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        E:\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  E:\AirTone\AirToneMLL\Debug\List\AK4637.lst
+#    Object file  =  E:\AirTone\AirToneMLL\Debug\Obj\AK4637.o
+#
+###############################################################################
+
+E:\AirTone\AirToneMLL\DRIVER\AK4637\AK4637.c
+      1          /*******************************************************************************
+      2           * Brief:   Library for AK4637EN, run on STM8L15x
+      3           * Author:  ZhiYe
+      4           * Update:  2017.04.04
+      5           *******************************************************************************/
+      6           
+      7          #include "AK4637.h"
+      8          
+      9          
+     10          /*------------------------------------------------------------------ *
+     11           *                          I2C Command                              *
+     12           *------------------------------------------------------------------ */
+     13          
+     14          /**
+     15            * Brief  Write one byte to one single register
+     16            * Param  Addr: Address of the register
+     17            *         Value: Value you want to write to the register
+     18            * RetVal None:
+     19            */
+     20          void AK4637_Write_Reg(uint8_t RegAddr, uint8_t RegVal)
+     21          {
+     22              //SDA_IT_DISABLE();
+     23              
+     24              //I2C_IOsim_Send_TwoBytes(AK4637_Address_W, Addr, Value);
+     25              
+     26              I2Csim_START();
+     27              
+     28              I2Csim_Send_Byte(I2C_Address_4637_W, ACK_ENABLE);
+     29              I2Csim_Send_Byte(RegAddr, ACK_ENABLE);
+     30              I2Csim_Send_Byte(RegVal, ACK_ENABLE);
+     31              
+     32              I2Csim_STOP();
+     33              
+     34              //SDA_IT_ENABLE();
+     35          }
+     36          
+     37          
+     38          /**
+     39            * Brief  Read one byte from one single register
+     40            * Param  Addr: Address of the register
+     41            * RetVal Register value
+     42            */
+     43          uint8_t AK4637_Read_Reg(uint8_t RegAddr)
+     44          {
+     45              //SDA_IT_DISABLE();
+     46              
+     47              uint8_t RegVal = 0;
+     48              
+     49              //RegVal = I2C_IOsim_Receive_OneByte(Addr);
+     50              
+     51              I2Csim_START();
+     52              
+     53              I2Csim_Send_Byte(I2C_Address_4637_W, ACK_ENABLE);
+     54              I2Csim_Send_Byte(RegAddr, ACK_ENABLE);
+     55              
+     56              I2Csim_START();
+     57              
+     58              I2Csim_Send_Byte(I2C_Address_4637_R, ACK_ENABLE);
+     59              RegVal = I2Csim_Receive_Byte(ACK_DISABLE);
+     60              
+     61              I2Csim_STOP();
+     62              
+     63              //SDA_IT_ENABLE();
+     64              
+     65              return RegVal;
+     66          }
+     67          
+     68          /* Initialization **************************************************************/
+     69          
+     70          /**
+     71            *
+     72            *
+     73            */
+     74          void AK4637_Init()
+     75          {
+     76              AK4637_PDN_L();
+     77              Delay_ms(300);
+     78              AK4637_PDN_H();
+     79              
+     80              /* Dummy command, write 0 to 00h, to set all registers to initial value. */
+     81              AK4637_Write_Reg(0x00, 0);
+     82              
+     83              /* System clock configuration. */
+     84              AK4637_SysClk(PwMng2_PMPLL_PowerDown, PwMng2_MS_Slave);
+     85              
+     86              AK4637_AudioFormat(MdCtrl3_DIF_I2S, 
+     87                                 MdCtrl2_FS_48kHz,
+     88                                 MdCtrl2_CM_512fs,
+     89                                 MdCtrl3_MSBS_HalfClk,     // no use in I2S mode
+     90                                 MdCtrl3_BCKP_RisingEdge); // no use in I2S mode
+     91              
+     92              AK4637_Mode_Control1(MdCtrl1_PPL_NA, MdCtrl1_CKOUT, MdCtrl1_BCKO_16fs);
+     93              
+     94              /* Power up VCOM and Regulator */
+     95              AK4637_PwMng_VCM(PwMng1_PMVCM_PowerUp);
+     96              Delay_ms(10);
+     97              
+     98              
+     99          }
+    100          
+    101          
+    102          /* Temporary Area **************************************************************/
+    103          
+    104          /**
+    105            * Brief  
+    106            * Param  PMPLL: PLL Power Management
+    107            *            PwMng2_PMPLL_PowerUp
+    108            *            PwMng2_PMPLL_PowerDown (default)
+    109            * Param  M_S: Master/Slave Mode Select
+    110            *            PwMng2_MS_Master
+    111            *            PwMng2_MS_Slave (default)
+    112            * RetVal None
+    113            */ 
+    114          void AK4637_SysClk(PwMng2_PMPLL_T PMPLL,
+    115                                   PwMng2_MS_T MS)
+    116          {
+    117              uint8_t Reg = AK4637_Read_Reg(PwMng2_Address);
+    118              Reg |= ((uint8_t)PMPLL | (uint8_t)MS);
+    119              AK4637_Write_Reg(PwMng2_Address, Reg);
+    120          }
+    121          
+    122          
+    123          /**
+    124            * Brief： 
+    125            * Param:  ADC_DigitalBlock:
+    126            *         DAC_DigitalBlock:
+    127            *         ADC_No_DigitalBlock:
+    128            *         DAC_No_DigitalBlock:
+    129            *         LoopBack: with digital block.
+    130            *                     NOTE:this is not avalible on the prototype board v2
+    131            * TODO:   add mic-in and spk-out options
+    132            */
+    133          void AK4637_SignalPath(AK4637_SignalPath_T path)
+    134          {
+    135              AK4637_PwMng_PFIL(PwMng1_PMPFIL_PowerDown);
+    136              
+    137              AK4637_DigitMIC_Select(DigitMIC_DMIC_AnalogMIC);
+    138              
+    139              
+    140              switch(path)
+    141              {
+    142                  case ADC_DigitalBlock:
+    143                      AK4637_PwMng_DAC(PwMng1_PMDAC_PowerDown);
+    144                      
+    145                      /* Line in */
+    146                      AK4637_ADC_Select(SgnlSlct2_MDIF_SingleEnded);
+    147                      AK4637_MicGain(SgnlSlct1_MGAIN_18dB);
+    148                      AK4637_LD_LineIN();
+    149                      
+    150                      /* ADC part */
+    151                      AK4637_PwMng_ADC(PwMng1_PMADC_PowerUp);
+    152                      AK4637_DigitFilt_HPF1(DigitFiltSlct1_HPFAD_ON,
+    153                                            DigitFiltSlct1_HPFC_3Hz7);
+    154                      
+    155                      AK4637_RecordingPlaybackMode(DigitalFilterMode_ADCPF_ADC,
+    156                                                   DigitalFilterMode_PFDAC_SDTI,
+    157                                                   DigitalFilterMode_PFSDO_DigitBlk);
+    158                      
+    159                      AK4637_PwMng_PFIL(PwMng1_PMPFIL_PowerUp);
+    160                      break;
+    161                      
+    162                  case DAC_DigitalBlock:
+    163                      AK4637_PwMng_ADC(PwMng1_PMADC_PowerDown);
+    164                      
+    165                      /* DAC part */
+    166                      AK4637_PwMng_DAC(PwMng1_PMDAC_PowerUp);
+    167                      // DVOL and SMUTE settings are ignored. the default values are just good.
+    168                      AK4637_DAC_to_Line(SgnlSlct3_DACL_ON);
+    169                      
+    170                      /* Line out */
+    171                      // the order of the codes below must be obeyed, to reduce pop noise
+    172                      AK4637_MonoOut_Select(PwMng1_LOSEL_LineOut);
+    173                      AK4637_PwMng_SpkAmp(PwMng2_PMSL_PowerUp);
+    174                      AK4637_SL_PwSave(SgnlSlct1_SLPSN_Normal);
+    175                      AK4637_LD_LineOUT();
+    176                      
+    177                      AK4637_RecordingPlaybackMode(DigitalFilterMode_ADCPF_SDTI,
+    178                                                   DigitalFilterMode_PFDAC_PFVOL,
+    179                                                   DigitalFilterMode_PFSDO_ADC);
+    180                      
+    181                      // the setting of PFVOL is ignored. It's just fine by its default value.
+    182                                  
+    183                      AK4637_PwMng_PFIL(PwMng1_PMPFIL_PowerUp);
+    184                      break;
+    185                      
+    186                  case ADC_No_DigitalBlock:
+    187                      AK4637_PwMng_DAC(PwMng1_PMDAC_PowerDown);
+    188                      
+    189                      /* Line in */
+    190                      AK4637_ADC_Select(SgnlSlct2_MDIF_SingleEnded);
+    191                      AK4637_MicGain(SgnlSlct1_MGAIN_18dB);
+    192                      AK4637_LD_LineIN();
+    193                      
+    194                      /* ADC part */
+    195                      AK4637_PwMng_ADC(PwMng1_PMADC_PowerUp);
+    196                      AK4637_DigitFilt_HPF1(DigitFiltSlct1_HPFAD_ON,
+    197                                            DigitFiltSlct1_HPFC_3Hz7);
+    198                      
+    199                      AK4637_RecordingPlaybackMode(DigitalFilterMode_ADCPF_ADC,
+    200                                                   DigitalFilterMode_PFDAC_SDTI,
+    201                                                   DigitalFilterMode_PFSDO_ADC);
+    202                      
+    203                      break;
+    204                      
+    205                  case DAC_No_DigitalBlock:
+    206                      AK4637_PwMng_ADC(PwMng1_PMADC_PowerDown);
+    207                  
+    208                      /* DAC part */
+    209                      AK4637_PwMng_DAC(PwMng1_PMDAC_PowerUp);
+    210                      // DVOL and SMUTE settings are ignored. the default values are just good.
+    211                      AK4637_DAC_to_Line(SgnlSlct3_DACL_ON);
+    212                      
+    213                      /* Line out */
+    214                      // the order of the codes below must be obeyed, to reduce pop noise
+    215                      AK4637_MonoOut_Select(PwMng1_LOSEL_LineOut);
+    216                      AK4637_PwMng_SpkAmp(PwMng2_PMSL_PowerUp);
+    217                      AK4637_SL_PwSave(SgnlSlct1_SLPSN_Normal);
+    218                      AK4637_LD_LineOUT();
+    219                      
+    220                      AK4637_RecordingPlaybackMode(DigitalFilterMode_ADCPF_SDTI,
+    221                                                   DigitalFilterMode_PFDAC_SDTI,
+    222                                                   DigitalFilterMode_PFSDO_ADC);
+    223                      
+    224                      break;
+    225                      
+    226                  case LoopBack:
+    227                      
+    228                      /* Line in */
+    229                      AK4637_ADC_Select(SgnlSlct2_MDIF_SingleEnded);
+    230                      AK4637_MicGain(SgnlSlct1_MGAIN_18dB);
+    231                      
+    232                      /* ADC part */
+    233                      AK4637_PwMng_ADC(PwMng1_PMADC_PowerUp);
+    234                      AK4637_DigitFilt_HPF1(DigitFiltSlct1_HPFAD_ON,
+    235                                            DigitFiltSlct1_HPFC_3Hz7);
+    236                      
+    237                      /* DAC part */
+    238                      AK4637_PwMng_DAC(PwMng1_PMDAC_PowerUp);
+    239                      // DVOL and SMUTE settings are ignored. the default values are just good.
+    240                      AK4637_DAC_to_Line(SgnlSlct3_DACL_ON);
+    241                      
+    242                      /* Line out */
+    243                      // the order of the codes below must be obeyed, to reduce pop noise
+    244                      AK4637_MonoOut_Select(PwMng1_LOSEL_LineOut);
+    245                      AK4637_PwMng_SpkAmp(PwMng2_PMSL_PowerUp);
+    246                      AK4637_SL_PwSave(SgnlSlct1_SLPSN_Normal);
+    247                      
+    248                      AK4637_RecordingPlaybackMode(DigitalFilterMode_ADCPF_ADC,
+    249                                                   DigitalFilterMode_PFDAC_PFVOL,
+    250                                                   DigitalFilterMode_PFSDO_DigitBlk);
+    251                      
+    252                      // the setting of PFVOL is ignored. It's just fine by its default value.
+    253                      
+    254                      AK4637_PwMng_PFIL(PwMng1_PMPFIL_PowerUp);
+    255                      break;
+    256                      
+    257                  default:
+    258                      oPrint(">Error:wrong parameter for AK4637_SignalPath()!");
+    259                      break;
+    260              }
+    261          }
+    262          
+    263          
+    264          /* Power Management Functions **************************************************/
+    265          // Note: Not all power management functions are here.
+    266           
+    267          /**
+    268            * Brief  Microphone Amplifier and ADC Power Management
+    269            * Param  PMADC:
+    270            *            PwMng1_PMADC_PowerUp
+    271            *            PwMng1_PMADC_PowerDown (default)
+    272            * RetVal None
+    273            */ 
+    274          void AK4637_PwMng_ADC(PwMng1_PMADC_T PMADC)
+    275          {
+    276              uint8_t Reg = AK4637_Read_Reg(PwMng1_Address);
+    277              Reg |= PMADC;
+    278              AK4637_Write_Reg(PwMng1_Address, Reg);                                 
+    279          }
+    280          
+    281          /**
+    282            * Brief  DAC Power Management
+    283            * Param  PMDAC:
+    284            *            PwMng1_PMDAC_PowerUp
+    285            *            PwMng1_PMADC_PowerDown (default)
+    286            * RetVal None
+    287            */ 
+    288          void AK4637_PwMng_DAC(PwMng1_PMDAC_T PMDAC)
+    289          {
+    290              uint8_t Reg = AK4637_Read_Reg(PwMng1_Address);
+    291              Reg |= PMDAC;
+    292              AK4637_Write_Reg(PwMng1_Address, Reg);
+    293          }
+    294          
+    295          
+    296          /**
+    297            * Brief  BEEP Input Select and Power Management
+    298            * Param  PMBP:
+    299            *            PwMng1_PMBP_PowerUp
+    300            *            PwMng1_PMBP_PowerDown (default)
+    301            * RetVal None
+    302            */ 
+    303          void AK4637_PwMng_BeepInput(PwMng1_PMBP_T PMBP)
+    304          {
+    305              uint8_t Reg = AK4637_Read_Reg(PwMng1_Address);
+    306              Reg |= PMBP;
+    307              AK4637_Write_Reg(PwMng1_Address, Reg);
+    308          }
+    309          
+    310          
+    311          /**
+    312            * Brief  VCOM and Regulator (2.3V) Power Management
+    313            * Param  PMVCM:
+    314            *            PwMng1_PMVCM_PowerUp
+    315            *            PwMng1_PMVCM_PowerDown (default)
+    316            * RetVal None
+    317            */ 
+    318          void AK4637_PwMng_VCM(PwMng1_PMVCM_T PMVCM)
+    319          {
+    320              uint8_t Reg = AK4637_Read_Reg(PwMng1_Address);
+    321              Reg |= PMVCM;
+    322              AK4637_Write_Reg(PwMng1_Address, Reg);
+    323          }
+    324          
+    325          /**
+    326            * Brief  Programmable Filter Block Power Management
+    327            * Param  PMPFIL:
+    328            *            PwMng1_PMPFIL_PowerUp
+    329            *            PwMng1_PMPFIL_PowerDown (default)
+    330            * RetVal None
+    331            */ 
+    332          void AK4637_PwMng_PFIL(PwMng1_PMPFIL_T PMPFIL)
+    333          {
+    334              uint8_t Reg = AK4637_Read_Reg(PwMng1_Address);
+    335              Reg |= PMPFIL;
+    336              AK4637_Write_Reg(PwMng1_Address, Reg);
+    337          }
+    338          
+    339          
+    340          /**
+    341            * Brief  Speaker Amplifier or Mono Line Output Power Management
+    342            * Param  PMSL:
+    343          
+    344            *            PwMng2_PMSL_PowerUp
+    345            *            PwMng2_PMSL_PowerDown (default)
+    346            * RetVal None
+    347            */ 
+    348          void AK4637_PwMng_SpkAmp(PwMng2_PMSL_T PMSL)
+    349          {
+    350              uint8_t Reg = AK4637_Read_Reg(PwMng2_Address);
+    351              Reg |= PMSL;
+    352              AK4637_Write_Reg(PwMng2_Address, Reg);
+    353          }
+    354          
+    355          
+    356          
+    357          
+    358          /**
+    359            * Brief  Mono Line Output Select
+    360            * Param  LOSEL:
+    361            *            PwMng1_LOSEL_LineOut
+    362            *            PwMng1_LOSEL_SpeakerOut (default)
+    363            * RetVal None
+    364            */ 
+    365          void AK4637_MonoOut_Select(PwMng1_LOSEL_T LOSEL)
+    366          {
+    367              uint8_t Reg = AK4637_Read_Reg(PwMng1_Address);
+    368              Reg |= LOSEL;
+    369              AK4637_Write_Reg(PwMng1_Address, Reg);
+    370          }
+    371          
+    372          
+    373          
+    374          
+    375          /*---------------------------------------------------------------- *
+    376           *                        02   SgnlSlct1                       *
+    377           *---------------------------------------------------------------- */
+    378          
+    379          /**
+    380            * Brief  Microphone Amplifier Gain Control
+    381            * Param  MAGIN:
+    382            *            SgnlSlct1_MGAIN_0dB
+    383            *            SgnlSlct1_MGAIN_3dB
+    384            *            SgnlSlct1_MGAIN_6dB
+    385            *            SgnlSlct1_MGAIN_9dB
+    386            *            SgnlSlct1_MGAIN_12dB
+    387            *            SgnlSlct1_MGAIN_15dB
+    388            *            SgnlSlct1_MGAIN_18dB (default)
+    389            *            SgnlSlct1_MGAIN_21dB
+    390            *            SgnlSlct1_MGAIN_24dB
+    391            *            SgnlSlct1_MGAIN_27dB
+    392            *            SgnlSlct1_MGAIN_30dB
+    393            * RetVal None
+    394            */ 
+    395          void AK4637_MicGain(SgnlSlct1_MGAIN_T MAGIN)
+    396          {
+    397              uint8_t Reg = AK4637_Read_Reg(SgnlSlct1_Address);
+    398              Reg |= MAGIN;
+    399              AK4637_Write_Reg(SgnlSlct1_Address, Reg);    
+    400          }
+    401          
+    402          
+    403          /**
+    404            * Brief  MPWR pin Power Managemen
+    405            * Param  PMMP:
+    406            *            SgnlSlct1_PMMP_PowerUp
+    407            *            SgnlSlct1_PMMP_PowerDown (default)
+    408            * RetVal None
+    409            */ 
+    410          void AK4637_MPWR_PwMng(SgnlSlct1_PMMP_T PMMP)
+    411          {
+    412              uint8_t Reg = AK4637_Read_Reg(SgnlSlct1_Address);
+    413              Reg |= PMMP;
+    414              AK4637_Write_Reg(SgnlSlct1_Address, Reg);                                 
+    415          }
+    416          
+    417          
+    418          /**
+    419            * Brief  Signal Switch Control from DAC to Speaker Amplifier
+    420            * Param  DACS:
+    421            *            SgnlSlct1_DACS_ON
+    422            *            SgnlSlct1_DACS_OFF (default)
+    423            * RetVal None
+    424            */ 
+    425          void AK4637_DAC_to_Sperker(SgnlSlct1_DACS_T DACS)
+    426          {
+    427              uint8_t Reg = AK4637_Read_Reg(SgnlSlct1_Address);
+    428              Reg |= DACS;
+    429              AK4637_Write_Reg(SgnlSlct1_Address, Reg);                             
+    430          }
+    431          
+    432          
+    433          /**
+    434            * Brief  Speaker Amplifier or Mono Line Output Power-Save Mode
+    435            * Param  SLPSN:
+    436            *            SgnlSlct1_SLPSN_Normal
+    437            *            SgnlSlct1_SLPSN_PowerSave (default)
+    438            * RetVal None
+    439            */ 
+    440          void AK4637_SL_PwSave(SgnlSlct1_SLPSN_T SLPSN)
+    441          {
+    442              uint8_t Reg = AK4637_Read_Reg(SgnlSlct1_Address);
+    443              Reg |= SLPSN;
+    444              AK4637_Write_Reg(SgnlSlct1_Address, Reg);                                 
+    445          }
+    446          
+    447          
+    448          /*---------------------------------------------------------------- *
+    449           *                        03  Signal Select 2                      *
+    450           *---------------------------------------------------------------- */
+    451          
+    452          /**
+    453            * Brief  MPWR pin Output Voltage Select
+    454            * Param  MICL:
+    455            *            SgnlSlct2_MICL_2_0V
+    456            *            SgnlSlct2_MICL_2_4V (default)
+    457            * RetVal None
+    458            */ 
+    459          void AK4637_MPWROutPut(SgnlSlct2_MICL_T MICL)
+    460          {
+    461              uint8_t Reg = AK4637_Read_Reg(SgnlSlct2_Address);
+    462              Reg |= MICL;
+    463              AK4637_Write_Reg(SgnlSlct2_Address, Reg); 
+    464          }
+    465          
+    466          
+    467          /**
+    468            * Brief  Speaker Amplifier Output Gain Select
+    469            * Param  SPKG:
+    470            *            SgnlSlct2_SPKG_8_4dB
+    471            *            SgnlSlct2_SPKG_11_1dB
+    472            *            SgnlSlct2_SPKG_6_4dB (default)
+    473            *            SgnlSlct2_SPKG_14_9dB
+    474            * RetVal None
+    475            */ 
+    476          void AK4637_SPK_AmpOutputLevel(SgnlSlct2_SPKG_T SPKG)
+    477          {
+    478              uint8_t Reg = AK4637_Read_Reg(SgnlSlct2_Address);
+    479              Reg |= SPKG;
+    480              AK4637_Write_Reg(SgnlSlct2_Address, Reg); 
+    481          }
+    482           
+    483           
+    484          /**
+    485            * Brief  ADC Input Source Select
+    486            * Param  MDIF:
+    487            *            SgnlSlct2_MDIF_SingleEnded (default)
+    488            *            SgnlSlct2_MDIF_Differential
+    489            * RetVal None
+    490            */ 
+    491          void AK4637_ADC_Select(SgnlSlct2_MDIF_T MDIF)
+    492          {
+    493              uint8_t Reg = AK4637_Read_Reg(SgnlSlct2_Address);
+    494              Reg |= MDIF;
+    495              AK4637_Write_Reg(SgnlSlct2_Address, Reg); 
+    496          }
+    497           
+    498           
+    499          /*---------------------------------------------------------------- *
+    500           *                    04 Signal Select 3                       *
+    501           *---------------------------------------------------------------- */ 
+    502          
+    503          /**
+    504            * Brief  Mono Line Output Gain and Common Voltage Setting
+    505            * Param  LVCM:
+    506            *            SgnlSlct3_LVCM_0dB_1_3
+    507            *            SgnlSlct3_LVCM_2dB_1_5 (default)
+    508            *            SgnlSlct3_LVCM_2dB_1_3
+    509            *            SgnlSlct3_LVCM_4dB_1_5
+    510            * RetVal None
+    511            */ 
+    512          void AK4637_MonoLineOutput_Volume(SgnlSlct3_LVCM_T LVCM)
+    513          {
+    514              uint8_t Reg = AK4637_Read_Reg(SgnlSlct3_Address);
+    515              Reg |= LVCM;
+    516              AK4637_Write_Reg(SgnlSlct3_Address, Reg);
+    517          }  
+    518          
+    519          
+    520          /**
+    521            * Brief  Signal Switch Control from DAC to Mono Line Amplifier
+    522            * Param  DACL:
+    523            *            SgnlSlct3_DACL_ON
+    524            *            SgnlSlct3_DACL_OFF (default)
+    525            * RetVal None
+    526            */ 
+    527          void AK4637_DAC_to_Line(SgnlSlct3_DACL_T DACL)
+    528          {
+    529              uint8_t Reg = AK4637_Read_Reg(SgnlSlct3_Address);
+    530              Reg |= DACL;
+    531              AK4637_Write_Reg(SgnlSlct3_Address, Reg);                             
+    532          }
+    533          
+    534           
+    535          /*------------------------------------------------------------------ *
+    536           *                      05/06   Mode Control                         *
+    537           *------------------------------------------------------------------ */
+    538          
+    539          /**
+    540            * Brief  
+    541            * Param  PllMode: PLL Reference Clock Select
+    542            *            MdCtrl1_PPL_NA:  0x00, used for ext slave mode initialization.
+    543            *            MdCtrl1_PLL_16fs
+    544            *            MdCtrl1_PLL_32fs
+    545            *            MdCtrl1_PLL_64_fs
+    546            *            MdCtrl1_PLL_11M2896Hz
+    547            *            MdCtrl1_PLL_12M288Hz (default)
+    548            *            MdCtrl1_PLL_12MHz
+    549            *            MdCtrl1_PLL_24MHz
+    550            *            MdCtrl1_PLL_13M5Hz
+    551            *            MdCtrl1_PLL_27MHz
+    552            * Param  CKOFF: FCK, BICK, SDTO Output Stop Setting in Master Mode
+    553            *            MdCtrl1_CKOFF
+    554            *            MdCtrl1_CKOUT (default)
+    555            * Param  BckoMode: BICK Output Frequency Setting in Master Mode
+    556            *            MdCtrl1_BCKO_16fs (default)
+    557            *            MdCtrl1_BCKO_32fs
+    558            *            MdCtrl1_BCKO_64fs
+    559            *            MdCtrl1_BCKO_N_A
+    560            * RetVal None
+    561            */ 
+    562          void AK4637_Mode_Control1(MdCtrl1_PLL_T PllMode,
+    563                                    MdCtrl1_CKOFF_T CKOFF,
+    564                                    MdCtrl1_BCKO_T BckoMode)
+    565          {
+    566              AK4637_Write_Reg(MdCtrl1_Address, (uint8_t)PllMode | (uint8_t)CKOFF | (uint8_t)BckoMode);
+    567          }
+    568          
+    569          
+    570          
+    571          /*---------------------------------------------------------------- *
+    572           *                 07   Audio Interface Format                     *
+    573           *---------------------------------------------------------------- */
+    574          
+    575          /**
+    576            * Brief 
+    577            * Param  DIF: Audio Interface Format
+    578            *            MdCtrl3_DIF_DSP
+    579            *            MdCtrl3_DIF_24_16bitMSB
+    580            *            MdCtrl3_DIF_24bitMSB (default)
+    581            *            MdCtrl3_DIF_I2S: 16bit or 24bit compatible
+    582            * Param  fs: Sampling frequency Setting
+    583            *            MdCtrl2_FS_8kHz
+    584            *            MdCtrl2_FS_11k025Hz
+    585            *            MdCtrl2_FS_12kHz
+    586            *            MdCtrl2_FS_16kHz
+    587            *            MdCtrl2_FS_22k05Hz
+    588            *            MdCtrl2_FS_24kHz
+    589            *            MdCtrl2_FS_32kHz
+    590            *            MdCtrl2_FS_44k1Hz
+    591            *            MdCtrl2_FS_48kHz (default)
+    592            * Param  MCLK: MCKI Input Frequency Setting in EXT mode
+    593            *            MdCtrl2_CM_256fs (default)
+    594            *            MdCtrl2_CM_384fs
+    595            *            MdCtrl2_CM_512fs
+    596            *            MdCtrl2_CM_1024fs
+    597            * Param  MSBS: FCK Phase at DSP Mode
+    598            *            MdCtrl3_MSBS_OneClk
+    599            *            MdCtrl3_MSBS_HalfClk (default)
+    600            * Param  BCKP: BICK Polarity at DSP Mode
+    601            *            MdCtrl3_BCKP_FallingEdge
+    602            *            MdCtrl3_BCKP_RisingEdge (default)
+    603            *
+    604            * RetVal None
+    605            */ 
+    606           void AK4637_AudioFormat(MdCtrl3_DIF_T DIF, 
+    607                                   MdCtrl2_FS_T fs, 
+    608                                   MdCtrl2_CM_T MCLK,
+    609                                   MdCtrl3_MSBS_T MSBS,
+    610                                   MdCtrl3_BCKP_T BCKP)
+    611          {
+    612              uint8_t Reg;
+    613              Reg = AK4637_Read_Reg(MdCtrl3_Address);
+    614              Reg |= (uint8_t)DIF;
+    615              AK4637_Write_Reg(MdCtrl3_Address, Reg);
+    616              
+    617              AK4637_Write_Reg(MdCtrl2_Address, (uint8_t)MCLK | (uint8_t)fs);
+    618              
+    619              if(DIF == MdCtrl3_DIF_DSP)
+    620              {
+    621                  Reg = AK4637_Read_Reg(MdCtrl3_Address);
+    622                  Reg |= ((uint8_t)MSBS | (uint8_t)BCKP);
+    623                  AK4637_Write_Reg(MdCtrl3_Address, Reg);
+    624              }
+    625          }
+    626          
+    627          
+    628          /**
+    629            * Brief  
+    630            * Param  SMUTE: Soft Mute Control
+    631            *            MdCtrl3_SMUTE_SoftMute
+    632            *            MdCtrl3_SMUTE_Normal (default)
+    633            *
+    634            * Param  THDET: Thermal Shutdown Detection Result
+    635            *            MdCtrl3_THDET_ThermalShutDown
+    636            *            MdCtrl3_THDET_Normal (default)
+    637            *
+    638            * Param  TSDSEL: Thermal Shutdown Mode Select
+    639            *            MdCtrl3_TSDSEL_ManualPowerUp
+    640            *            MdCtrl3_TSDSEL_AutomaticPowerUp (default)
+    641            * RetVal None
+    642            */
+    643          void AK4637_Mode_Control3_1(MdCtrl3_SMUTE_T SMUTE,
+    644                                    MdCtrl3_THDET_T THDET,
+    645                                    MdCtrl3_TSDSEL_T TSDSEL)
+    646          {
+    647              uint8_t Reg = AK4637_Read_Reg(MdCtrl3_Address);
+    648              Reg |= ((uint8_t)SMUTE | (uint8_t)THDET | (uint8_t)TSDSEL);
+    649               AK4637_Write_Reg(MdCtrl3_Address, Reg);                                 
+    650          }
+    651          
+    652          
+    653          /*---------------------------------------------------------------- *
+    654           *                         08   DigitMIC                         *
+    655           *---------------------------------------------------------------- */
+    656          
+    657          /**
+    658            * Brief  Digital Microphone Connection Select
+    659            * Param  DMIC:
+    660          
+    661            *            DigitMIC_DMIC_DigitMIC
+    662            *            DigitMIC_DMIC_AnalogMIC (default)
+    663            * RetVal None
+    664            */ 
+    665          void AK4637_DigitMIC_Select(DigitMIC_DMIC_T DMIC)
+    666          {
+    667              uint8_t Reg = AK4637_Read_Reg(DigitMIC_Address);
+    668              Reg |= DMIC;
+    669              AK4637_Write_Reg(DigitMIC_Address, Reg);
+    670          }
+    671          
+    672          
+    673          /**
+    674            * Brief  Data Latching Edge Select
+    675            * Param  DCLKP:
+    676          
+    677            *            DigitMIC_DCLKP_FallingEdge
+    678            *            DigitMIC_DCLKP_RisingEdge (default)
+    679            * RetVal None
+    680            */ 
+    681          void AK4637_DigitMIC_CPOL(DigitMIC_DCLKP_T DCLKP)
+    682          {
+    683               uint8_t Reg = AK4637_Read_Reg(DigitMIC_Address);
+    684              Reg |= DCLKP;
+    685              AK4637_Write_Reg(DigitMIC_Address, Reg);                             
+    686          }
+    687          
+    688          
+    689          /**
+    690            * Brief  DMCLK pin Output Clock Control
+    691            * Param  DCLKE:
+    692          
+    693            *            DigitMIC_DCLKE_64fsOutput
+    694            *            DigitMIC_DCLKE_LOutput (default)
+    695            * RetVal None
+    696            */ 
+    697          void AK4637_DigitMIC_MCLK(DigitMIC_DCLKE_T DCLKE)
+    698          {
+    699              uint8_t Reg = AK4637_Read_Reg(DigitMIC_Address);
+    700              Reg |= DCLKE;
+    701              AK4637_Write_Reg(DigitMIC_Address, Reg);                             
+    702          }
+    703          
+    704          
+    705          /**
+    706            * Brief  Input Signal Select with Digital Microphone
+    707            * Param  PMDM:
+    708          
+    709            *            DigitMIC_PMDM_ON
+    710            *            DigitMIC_PMDM_OFF (default)
+    711            * RetVal None
+    712            */ 
+    713          void AK4637_PwMng_DigitMIC(DigitMIC_PMDM_T PMDM)
+    714          {
+    715              uint8_t Reg = AK4637_Read_Reg(DigitMIC_Address);
+    716              Reg |= PMDM;
+    717              AK4637_Write_Reg(DigitMIC_Address, Reg);                             
+    718          }
+    719          
+    720          
+    721          /*---------------------------------------------------------------- *
+    722           *                   09 Output Digital Volume                      *
+    723           *---------------------------------------------------------------- */
+    724          
+    725          /**
+    726            * Brief  Output Digital Volume Soft Transition Time Setting
+    727            * Param  DVTM:
+    728          
+    729            *            TimerSelect_DVTM_204_fs
+    730            *            TimerSelect_DVTM_816_fs (default)
+    731            * RetVal None
+    732            */ 
+    733          void AK4637_OutputTransitionTime(TimerSelect_DVTM_T DVTM)
+    734          {
+    735              uint8_t Reg = AK4637_Read_Reg(TimerSelect_Address);
+    736              Reg |= DVTM;
+    737              AK4637_Write_Reg(TimerSelect_Address, Reg);
+    738          }
+    739          
+    740          
+    741          /*---------------------------------------------------------------- *
+    742           *                     09/0A/0B ALC Operation                      *
+    743           *---------------------------------------------------------------- */
+    744          
+    745          /**
+    746            * Brief  
+    747            * Param  FRN: ALC Fast Recovery Function Enable
+    748          
+    749            *            TimerSelect_FRN_Disable
+    750            *            TimerSelect_FRN_Enable (default)
+    751            *
+    752            * Param  RFATT: Fast Recovery Reference Volume Attenuation Amount
+    753          
+    754            *            TimerSelect_RFATT_16_fs
+    755            *            TimerSelect_RFATT_4_fs (default)
+    756            *
+    757            * Param  ADRST: ADC Initialization Cycle Setting
+    758          
+    759            *            TimerSelect_ADRST_1059_fs (default)
+    760            *            TimerSelect_ADRST_267_fs
+    761            *            TimerSelect_ADRST_531_fs
+    762            *            TimerSelect_ADRST_135_fs
+    763            * RetVal None
+    764            */ 
+    765          void AK4637_TimerSelect(TimerSelect_FRN_T FRN,
+    766                                     TimerSelect_RFATT_T RFATT,
+    767                                     TimerSelect_ADRST_T ADRST)
+    768          {
+    769              uint8_t Reg = AK4637_Read_Reg(TimerSelect_Address);
+    770              Reg |= ((uint8_t)FRN | (uint8_t)RFATT | (uint8_t)ADRST);
+    771              AK4637_Write_Reg(TimerSelect_Address, Reg);                                 
+    772          }
+    773          
+    774          
+    775          /**
+    776            * Brief  
+    777            * Param  IVTM: Input Digital Volume Soft Transition Time Setting
+    778            *            ALC_TimerSelect_IVTM_236_fs
+    779            *            ALC_TimerSelect_IVTM_944_fs (default)
+    780            *
+    781            * Param  EQFC: ALCEQ Frequency Setting
+    782            *            ALC_TimerSelect_EQFC_12kHz
+    783            *            ALC_TimerSelect_EQFC_24kHz
+    784            *            ALC_TimerSelect_EQFC_48kHz (default)
+    785            *            ALC_TimerSelect_EQFC_N_A
+    786            *
+    787            * Param  WTM: ALC Recovery Waiting Period
+    788            *            ALC_TimerSelect_WTM_128_fs (default)
+    789            *            ALC_TimerSelect_WTM_256_fs
+    790            *            ALC_TimerSelect_WTM_512_fs
+    791            *            ALC_TimerSelect_WTM_1024_fs
+    792            *
+    793            * Param  RFST: ALC First Recovery Speed
+    794            *            ALC_TimerSelect_RFST_0_0032 (default)
+    795            *            ALC_TimerSelect_RFST_0_0042
+    796            *            ALC_TimerSelect_RFST_0_0064
+    797            *            ALC_TimerSelect_RFST_0_0127
+    798            * RetVal None
+    799            */ 
+    800          void AK4637_ALC_TimerSelect(ALC_TimerSelect_IVTM_T IVTM,
+    801                                    ALC_TimerSelect_EQFC_T EQFC,
+    802                                    ALC_TimerSelect_WTM_T WTM,
+    803                                    ALC_TimerSelect_RFST_T RFST)
+    804          {
+    805              AK4637_Write_Reg(ALC_TimerSelect_Address, (uint8_t)IVTM | (uint8_t)EQFC | (uint8_t)WTM | (uint8_t)RFST);
+    806          }
+    807          
+    808          
+    809          /**
+    810            * Brief  
+    811            * Param  ALCEQ: ALC EQ Enable 
+    812            *            ALC_MdCtrl1_ALCEQN_OFF
+    813            *            ALC_MdCtrl1_ALCEQN_ON (default)
+    814            *
+    815            * Param  LMTH: ALC Limiter Detection Level / Recovery Counter Reset Level
+    816            *            ALC_MdCtrl1_LMTH_4_1dB (default)
+    817            *            ALC_MdCtrl1_LMTH_3_3dB
+    818            *            ALC_MdCtrl1_LMTH_6_0dB
+    819            *            ALC_MdCtrl1_LMTH_5_0dB
+    820            *            ALC_MdCtrl1_LMTH_8_5dB
+    821            *            ALC_MdCtrl1_LMTH_7_2dB
+    822            *            ALC_MdCtrl1_LMTH_12_0dB
+    823            *            ALC_MdCtrl1_LMTH_10_1dB
+    824            *
+    825            * Param  RGAIN: ALC Recovery Gain Step
+    826            *            ALC_MdCtrl1_RGAIN_0_00424_1fs (default)
+    827            *            ALC_MdCtrl1_RGAIN_0_00212_1fs
+    828            *            ALC_MdCtrl1_RGAIN_0_00106_1fs
+    829            *            ALC_MdCtrl1_RGAIN_0_00106_2fs
+    830            *            ALC_MdCtrl1_RGAIN_0_00106_4fs
+    831            *            ALC_MdCtrl1_RGAIN_0_00106_8fs
+    832            *            ALC_MdCtrl1_RGAIN_0_00106_16fs
+    833            *            ALC_MdCtrl1_RGAIN_0_00106_32fs
+    834            * RetVal None
+    835            */ 
+    836          void AK4637_ALC_MdCtrl1(ALC_MdCtrl1_ALCEQN_T ALCEQ,
+    837                                     ALC_MdCtrl1_LMTH_T LMTH,
+    838                                     ALC_MdCtrl1_RGAIN_T RGAIN)
+    839          {
+    840              uint8_t Reg = AK4637_Read_Reg(ALC_MdCtrl1_Address);
+    841              Reg |= ((uint8_t)ALCEQ | (uint8_t)LMTH | (uint8_t)RGAIN);
+    842              AK4637_Write_Reg(ALC_MdCtrl1_Address, Reg);
+    843          }
+    844          
+    845          
+    846          /**
+    847            * Brief  ALC Enable
+    848            * Param  ALC:
+    849            *            ALC_MdCtrl1_ALC_Enable
+    850            *            ALC_MdCtrl1_ALC_Disable (default)
+    851            * RetVal None
+    852            */ 
+    853          void AK4637_ALC_Enable(ALC_MdCtrl1_ALC_T ALC)
+    854          {
+    855              uint8_t Reg = AK4637_Read_Reg(ALC_MdCtrl1_Address);
+    856              Reg |= ALC;
+    857              AK4637_Write_Reg(ALC_MdCtrl1_Address, Reg);
+    858          }
+    859          
+    860          
+    861          /*---------------------------------------------------------------- *
+    862           *                      0C ALC Mode Control 2                      *
+    863           *---------------------------------------------------------------- */
+    864          
+    865          /**
+    866            * Brief  Reference Value at ALC Recovery Operation.
+    867                      0.375dB step, 242 Level
+    868            * Param  REF: default:"E1H"(+30.0dB)
+    869            * RetVal None
+    870            */ 
+    871          void AK4637_ALC_MdCtrl2(uint8_t REF)
+    872          {
+    873              AK4637_Write_Reg(ALC_MdCtrl2_Address, REF);
+    874          } 
+    875           
+    876           
+    877          /*---------------------------------------------------------------- *
+    878           *                      0D Input Volume Control                    *
+    879           *---------------------------------------------------------------- */
+    880          
+    881          /**
+    882            * Brief  Digital Input Volume;
+    883                      0.375dB step, 242 Level
+    884            * Param  IVOL: default:"E1H"(+30.0dB)
+    885            * RetVal None
+    886            */  
+    887          void AK4637_Input_VolumeControl(uint8_t IVOL)
+    888          {
+    889              AK4637_Write_Reg(InputVolumeControl_Address, IVOL);
+    890          }  
+    891           
+    892           
+    893          /*---------------------------------------------------------------- *
+    894           *                          0E ALC Volume                          *
+    895           *---------------------------------------------------------------- */
+    896          
+    897          /**
+    898            * Brief  Current ALC volume value;
+    899                      0.375dB step, 242 Level. 
+    900                      Read operation only.
+    901            * Param  None:
+    902            * RetVal Current ALC volume value
+    903            */  
+    904          uint8_t AK4637_ALC_Volume(void)
+    905          {
+    906              return ((uint8_t)AK4637_Read_Reg(ALC_Volume_Address));
+    907          }
+    908          
+    909           
+    910          /*---------------------------------------------------------------- *
+    911           *                      0F  BEEP Control                           *
+    912           *---------------------------------------------------------------- */
+    913          
+    914          /**
+    915            * Brief  
+    916            * Param  BPVCM: Common Voltage Setting of BEEP Input Amplifier
+    917          
+    918            *            BEEPControl_BPVCM_1_65V
+    919            *            BEEPControl_BPVCM_1_15V (default)
+    920            *
+    921            * Param  BEEPS: Signal Switch Control from the BEEP pin to Speaker Amplifier
+    922          
+    923            *            BEEPControl_BEEPS_ON
+    924            *            BEEPControl_BEEPS_OFF (default)
+    925            *
+    926            * Param  BPLVL: BEEP Output Level Setting
+    927          
+    928            *            BEEPControl_BPLVL_0dB (default)
+    929            *            BEEPControl_BPLVL_6dB
+    930            *            BEEPControl_BPLVL_12dB
+    931            *            BEEPControl_BPLVL_18dB
+    932            *            BEEPControl_BPLVL_24dB
+    933            *            BEEPControl_BPLVL_30dB
+    934            *            BEEPControl_BPLVL_33dB
+    935            *            BEEPControl_BPLVL_36dB
+    936            *            BEEPControl_BPLVL_39dB
+    937            *            BEEPControl_BPLVL_42dB
+    938            * RetVal None
+    939            */  
+    940          void AK4637_Beep_AmpCommonVoltage(BEEPControl_BPVCM_T BPVCM,
+    941                                          BEEPControl_BEEPS_T BEEPS,
+    942                                          BEEPControl_BPLVL_T BPLVL)
+    943          {
+    944              AK4637_Write_Reg(BEEPControl_Address, (uint8_t)BPVCM | (uint8_t)BEEPS | (uint8_t)BPLVL);
+    945          } 
+    946          
+    947          
+    948          /*---------------------------------------------------------------- *
+    949           *                    10 Digital Volume Control                    *
+    950           *---------------------------------------------------------------- */
+    951          
+    952          /**
+    953            * Brief  Reference Value at ALC Recovery Operation.
+    954                      0.375dB step, 242 Level
+    955            * Param  DVOL: default:"18H"(0dB)
+    956            * RetVal None
+    957            */  
+    958          void AK4637_Digital_VolumeControl(uint8_t DVOL)
+    959          {
+    960              AK4637_Write_Reg(ALC_Volume_Address, DVOL);
+    961          }
+    962           
+    963           
+    964          /*------------------------------------------------------------------ *
+    965           *                  11   EQ CommenGain Select                        *
+    966           *------------------------------------------------------------------ */
+    967          /**
+    968            * Brief 
+    969            * Param  EQC2: Equalizer 2 Common Gain Selector
+    970          
+    971            *            EQ_CommonGainSelect_EQC2_Enable
+    972            *            EQ_CommonGainSelect_EQC2_Disable (default)
+    973            *
+    974            * Param  EQC3: Equalizer 3 Common Gain Selector
+    975          
+    976            *            EQ_CommonGainSelect_EQC3_Enable
+    977            *            EQ_CommonGainSelect_EQC3_Disable (default)
+    978            *
+    979            * Param  EQC4: Equalizer 4 Common Gain Selector
+    980          
+    981            *            EQ_CommonGainSelect_EQC4_Enable
+    982            *            EQ_CommonGainSelect_EQC4_Disable (default)
+    983            *
+    984            * Param  EQC5: Equalizer 5 Common Gain Selector
+    985          
+    986            *            EQ_CommonGainSelect_EQC5_Enable
+    987            *            EQ_CommonGainSelect_EQC5_Disable (default)
+    988            * RetVal None
+    989            */ 
+    990          void AK4637_EQ_CommenGain_Select(EQ_CommonGainSelect_EQC2_T EQC2,
+    991                                         EQ_CommonGainSelect_EQC3_T EQC3,
+    992                                         EQ_CommonGainSelect_EQC4_T EQC4,
+    993                                         EQ_CommonGainSelect_EQC5_T EQC5)
+    994          {
+    995               AK4637_Write_Reg(EQ_CommonGainSelect_Address,
+    996                                     (uint8_t)EQC2 | (uint8_t)EQC3 | (uint8_t)EQC4 | (uint8_t)EQC5);                                 
+    997          }
+    998          
+    999          
+   1000          /*------------------------------------------------------------------ *
+   1001           *                      12   EQ2 Gain Setting                        *
+   1002           *------------------------------------------------------------------ */
+   1003          
+   1004          /**
+   1005            * Brief  
+   1006            * Param  EQ2G: Gain Setting 
+   1007                            default:"00H"(Mute)
+   1008            *
+   1009            * Param  EQnT: Transition Time
+   1010          
+   1011            *            EQn_GainSetting_256_fs (default)
+   1012            *            EQn_GainSetting_2048_fs
+   1013            *            EQn_GainSetting_8192_fs
+   1014            *            EQn_GainSetting_16384_fs
+   1015            * RetVal None
+   1016            */ 
+   1017          void AK4637_EQ2_GainSetting(uint8_t EQ2G,
+   1018                                    EQn_GainSetting_EQnT_T EQnT)
+   1019          {
+   1020              AK4637_Write_Reg(EQ3_Gainetting_Address, EQ2G | EQnT);
+   1021          } 
+   1022           
+   1023           
+   1024          /*------------------------------------------------------------------ *
+   1025           *                      13  EQ3 Gain Setting                         *
+   1026           *------------------------------------------------------------------ */
+   1027          
+   1028          /**
+   1029            * Brief  
+   1030            * Param  EQ3G: Gain Setting 
+   1031                            default:"00H"(Mute)
+   1032            *
+   1033            * Param  EQnT: Transition Time
+   1034          
+   1035            *            EQn_GainSetting_256_fs (default)
+   1036            *            EQn_GainSetting_2048_fs
+   1037            *            EQn_GainSetting_8192_fs
+   1038            *            EQn_GainSetting_16384_fs
+   1039            * RetVal None
+   1040            */  
+   1041          void AK4637_EQ3_GainSetting(uint8_t EQ3G,
+   1042                                    EQn_GainSetting_EQnT_T EQnT)
+   1043          {
+   1044              AK4637_Write_Reg(EQ3_Gainetting_Address, EQ3G | EQnT);
+   1045          } 
+   1046           
+   1047           
+   1048          /*------------------------------------------------------------------ *
+   1049           *                      14   EQ4 Gain Setting                         *
+   1050           *------------------------------------------------------------------ */
+   1051          
+   1052          /**
+   1053            * Brief  
+   1054            * Param  EQ4G: Gain Setting 
+   1055                            default:"00H"(Mute)
+   1056            *
+   1057            * Param  EQnT: Transition Time
+   1058          
+   1059            *            EQn_GainSetting_256_fs (default)
+   1060            *            EQn_GainSetting_2048_fs
+   1061            *            EQn_GainSetting_8192_fs
+   1062            *            EQn_GainSetting_16384_fs
+   1063            * RetVal None
+   1064            */  
+   1065          void AK4637_EQ4_GainSetting(uint8_t EQ4G,
+   1066                                    EQn_GainSetting_EQnT_T EQnT)
+   1067          {
+   1068              AK4637_Write_Reg(EQ4_GainSetting_Address, EQ4G | EQnT);
+   1069          }  
+   1070           
+   1071           
+   1072          /*------------------------------------------------------------------ *
+   1073           *                      15   EQ5 Gain Setting                        *
+   1074           *------------------------------------------------------------------ */
+   1075          
+   1076          /**
+   1077            * Brief  
+   1078            * Param  EQ5G: Gain Setting 
+   1079                            default:"00H"(Mute)
+   1080            *
+   1081            * Param  EQnT: Transition Time
+   1082          
+   1083            *            EQn_GainSetting_256_fs (default)
+   1084            *            EQn_GainSetting_2048_fs
+   1085            *            EQn_GainSetting_8192_fs
+   1086            *            EQn_GainSetting_16384_fs
+   1087            * RetVal None
+   1088            */  
+   1089          void AK4637_EQ5_GainSetting(uint8_t EQ5G,
+   1090                                    EQn_GainSetting_EQnT_T EQnT)
+   1091          {
+   1092              AK4637_Write_Reg(EQ5_GainSetting_Address, EQ5G | EQnT);
+   1093          } 
+   1094           
+   1095           
+   1096          /*---------------------------------------------------------------- *
+   1097           *        16/17/21 Programmable Filter ON/OFF Setting              *
+   1098           *---------------------------------------------------------------- */
+   1099          /**
+   1100            * Brief  
+   1101            * Param  HPFAD: HPF1 Control after ADC
+   1102            *            DigitFiltSlct1_HPFAD_OFF
+   1103            *            DigitFiltSlct1_HPFAD_ON (default)
+   1104            * Param  HPFC: Cut-off Frequency Setting of HPF1
+   1105            *              The is based on the fs of 48kHz. For situations based on other fs,
+   1106            *                see table 25 on P45 of the datasheet.
+   1107            *            DigitFiltSlct1_HPFC_3Hz7 (default)
+   1108            *            DigitFiltSlct1_HPFC_14Hz8
+   1109            *            DigitFiltSlct1_HPFC_118Hz4
+   1110            *            DigitFiltSlct1_HPFC_236Hz8
+   1111            * RetVal None
+   1112            */ 
+   1113            void AK4637_DigitFilt_HPF1(DigitFiltSlct1_HPFAD_T HPFAD,
+   1114                                       DigitFiltSlct1_HPFC_T HPFC)
+   1115          {
+   1116              AK4637_Write_Reg(DigitFiltSlct1_Address, (uint8_t)HPFC | (uint8_t)HPFAD);
+   1117          }
+   1118          /**
+   1119            * Brief  
+   1120            * Param  HPF: HPF2 Coefficient Setting Enable
+   1121          
+   1122            *            DigitFiltSlct2_HPF_ON
+   1123            *            DigitFiltSlct2_HPF_OFF (default)
+   1124            *
+   1125            * Param  LPF: LPF Coefficient Setting Enable
+   1126          
+   1127            *            DigitFiltSlct2_LPF_ON
+   1128            *            DigitFiltSlct2_LPF_OFF (default)
+   1129            * RetVal None
+   1130            */ 
+   1131          void AK4637_DigitFiltSlct2(DigitFiltSlct2_HPF_T HPF,
+   1132                                     DigitFiltSlct2_LPF_T LPF)
+   1133          {
+   1134               AK4637_Write_Reg(DigitFiltSlct2_Address, (uint8_t)HPF | (uint8_t)LPF);                                 
+   1135          }
+   1136          
+   1137          /**
+   1138            * Brief  
+   1139            * Param  EQ1: Equalizer 1 Coefficient Setting Enable
+   1140          
+   1141            *            DigitFiltSlct3_EQ1_Enable
+   1142            *            DigitFiltSlct3_EQ1_Disable (default)
+   1143            *
+   1144            * Param  EQ2: Equalizer 2 Coefficient Setting Enable
+   1145          
+   1146            *            DigitFiltSlct3_EQ2_Enable
+   1147            *            DigitFiltSlct3_EQ2_Disable (default)
+   1148            *
+   1149            * Param  EQ3: Equalizer 3 Coefficient Setting Enable
+   1150          
+   1151            *            DigitFiltSlct3_EQ3_Enable
+   1152            *            DigitFiltSlct3_EQ3_Disable (default)
+   1153            *
+   1154            * Param  EQ4: Equalizer 4 Coefficient Setting Enable
+   1155          
+   1156            *            DigitFiltSlct3_EQ4_Enable
+   1157            *            DigitFiltSlct3_EQ4_Disable (default)
+   1158            *
+   1159            * Param  EQ5: Equalizer 5 Coefficient Setting Enable
+   1160          
+   1161            *            DigitFiltSlct3_EQ5_Enable
+   1162            *            DigitFiltSlct3_EQ5_Disable (default)
+   1163            * RetVal None
+   1164            */  
+   1165          void AK4637_Digital_Filter_Select3(DigitFiltSlct3_EQ1_T EQ1,
+   1166                                             DigitFiltSlct3_EQ2_T EQ2,
+   1167                                             DigitFiltSlct3_EQ3_T EQ3,
+   1168                                             DigitFiltSlct3_EQ4_T EQ4,
+   1169                                             DigitFiltSlct3_EQ5_T EQ5)
+   1170          {
+   1171               AK4637_Write_Reg(DigitFiltSlct3_Address,
+   1172                                     (uint8_t)EQ1 | (uint8_t)EQ2 | (uint8_t)EQ3 | (uint8_t)EQ4 | (uint8_t)EQ5);                                 
+   1173          }
+   1174          
+   1175          
+   1176          /*---------------------------------------------------------------- *
+   1177           *               18  Programmable Filter Path                      *
+   1178           *---------------------------------------------------------------- */
+   1179          
+   1180          /**
+   1181            * Brief  
+   1182            * Param  ADCPF: Programmable Filter / ALC Input Signal Select
+   1183            *            DigitalFilterMode_ADCPF_SDTI
+   1184            *            DigitalFilterMode_ADCPF_ADC (default)
+   1185            * Param  PFDAC: DAC Input Signal Select
+   1186            *            DigitalFilterMode_PFDAC_SDTI (default)
+   1187            *            DigitalFilterMode_PFDAC_PFVOL
+   1188            *            DigitalFilterMode_PFDAC_SDTInPFVOL
+   1189            * Param  PFSDO: SDTO Output Signal Select
+   1190            *            DigitalFilterMode_PFSDO_ADC
+   1191            *            DigitalFilterMode_PFSDO_DigitBlk (default)
+   1192            * RetVal None
+   1193            */
+   1194          void AK4637_RecordingPlaybackMode(DigitalFilterMode_ADCPF_T ADCPF,
+   1195                                            DigitalFilterMode_PFDAC_T PFDAC,
+   1196                                            DigitalFilterMode_PFSDO_T PFSDO)
+   1197          {
+   1198              uint8_t Reg = AK4637_Read_Reg(DigitalFilterMode_Address);
+   1199              Reg |= ((uint8_t)ADCPF | (uint8_t)PFDAC | (uint8_t)PFSDO);
+   1200              AK4637_Write_Reg(DigitalFilterMode_Address, Reg); 
+   1201          }
+   1202          
+   1203          
+   1204          /*---------------------------------------------------------------- *
+   1205           *                   18 Sidetone Digital Volume                    *
+   1206           *---------------------------------------------------------------- */
+   1207          /**
+   1208            * Brief  Sidetone Digital Volume
+   1209            * Param  PFVOL:
+   1210          
+   1211            *            DigitalFilterMode_PFVOL_0dB (default)
+   1212            *            DigitalFilterMode_PFVOL_6dB
+   1213            *            DigitalFilterMode_PFVOL_12dB
+   1214            *            DigitalFilterMode_PFVOL_18dB
+   1215            * RetVal None
+   1216            */ 
+   1217          void AK4637_SidetoneDigitalVolume(DigitalFilterMode_PFVOL_T PFVOL)
+   1218          {
+   1219              uint8_t Reg = AK4637_Read_Reg(DigitalFilterMode_Address);
+   1220              Reg |= PFVOL;
+   1221              AK4637_Write_Reg(DigitalFilterMode_Address, Reg); 
+   1222          }
+   1223          
+   1224          
+   1225          /*---------------------------------------------------------------- *
+   1226           *                      19-1C   HPF2 Co-efficient                  *
+   1227           *---------------------------------------------------------------- */
+   1228          
+   1229          /**
+   1230            * Brief  HPF2 Coefficient
+   1231            * Param  HPF2_Cofficient[4]:
+   1232            * @note   Default: F1A13-0 bits = 0x1FB0,
+   1233                               F1B13-0 bits = 0x209F (fc = 150Hz@fs=48kHz)
+   1234            * RetVal None
+   1235            */ 
+   1236          void AK4637_HPF2_Coefficient(uint8_t HPF2_Cofficient[4])
+   1237          {
+   1238              uint8_t addr = HPF2_Co_efficient0_Address;
+   1239              for(int i=0; i<4; i++)
+   1240              {
+   1241                  AK4637_Write_Reg(addr++, HPF2_Cofficient[i]); 
+   1242              }
+   1243          } 
+   1244           
+   1245           
+   1246          /*---------------------------------------------------------------- *
+   1247           *                   1D-20   LPF Co-efficient                      *
+   1248           *---------------------------------------------------------------- */
+   1249          
+   1250          /**
+   1251            * Brief  LPF Co-efficient
+   1252            * Param  LPF_Cofficient[4]:
+   1253            * @note   Default: 0000H
+   1254            * RetVal None
+   1255            */  
+   1256          void AK4637_LPF_Coefficient(uint8_t LPF_Cofficient[4])
+   1257          {
+   1258              uint8_t addr = LPF_Co_efficient0_Address;
+   1259              for(int i=0; i<4; i++)
+   1260              {
+   1261                  AK4637_Write_Reg(addr++, LPF_Cofficient[i]); 
+   1262              }
+   1263          }  
+   1264           
+   1265           
+   1266          /*---------------------------------------------------------------- *
+   1267           *                  22-3F   E1/2/3/4/5 Co-efficient                *
+   1268           *---------------------------------------------------------------- */
+   1269          
+   1270          /**
+   1271            * Brief  E1/2/3/4/5 Co-efficient
+   1272            * Param  E_Cofficient[30]:
+   1273            * @note   Default: 0000H
+   1274            * RetVal None
+   1275            */  
+   1276          void AK4637_EQ_Coefficient(uint8_t EQ_Cofficient[30])
+   1277          {
+   1278              uint8_t addr = E1_Co_efficient0_Address;
+   1279              for(int i=0; i<30; i++)
+   1280              {
+   1281                  AK4637_Write_Reg(addr++, EQ_Cofficient[i]); 
+   1282              }
+   1283          } 
+   1284          
+   1285          /* ----------------------------- End of file --------------------------------- */
+   1286          /*******************************************************************************/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       5  ??Subroutine32_0
+       6  ??Subroutine33_0
+      16  ??Subroutine34_0
+      37  ?Subroutine0
+      10  ?Subroutine1
+      21  ?Subroutine10
+       5  ?Subroutine11
+       9  ?Subroutine12
+       7  ?Subroutine13
+      13  ?Subroutine14
+      14  ?Subroutine15
+       2  ?Subroutine16
+      17  ?Subroutine17
+       9  ?Subroutine18
+      15  ?Subroutine19
+       7  ?Subroutine2
+       8  ?Subroutine20
+       9  ?Subroutine21
+       5  ?Subroutine22
+       7  ?Subroutine23
+       9  ?Subroutine24
+      31  ?Subroutine25
+      12  ?Subroutine26
+       7  ?Subroutine27
+      11  ?Subroutine28
+       7  ?Subroutine29
+       9  ?Subroutine3
+      11  ?Subroutine30
+       9  ?Subroutine31
+      11  ?Subroutine4
+       9  ?Subroutine5
+      19  ?Subroutine6
+      21  ?Subroutine7
+      21  ?Subroutine8
+      21  ?Subroutine9
+      48  ?_0
+       5  AK4637_ADC_Select
+      21  AK4637_ALC_Enable
+      33  AK4637_ALC_MdCtrl1
+      19  AK4637_ALC_MdCtrl2
+      18  AK4637_ALC_TimerSelect
+       6  AK4637_ALC_Volume
+      64  AK4637_AudioFormat
+      28  AK4637_Beep_AmpCommonVoltage
+       5  AK4637_DAC_to_Line
+       5  AK4637_DAC_to_Sperker
+      10  AK4637_DigitFiltSlct2
+      10  AK4637_DigitFilt_HPF1
+       5  AK4637_DigitMIC_CPOL
+       5  AK4637_DigitMIC_MCLK
+       5  AK4637_DigitMIC_Select
+      20  AK4637_Digital_Filter_Select3
+      19  AK4637_Digital_VolumeControl
+      29  AK4637_EQ2_GainSetting
+      10  AK4637_EQ3_GainSetting
+      10  AK4637_EQ4_GainSetting
+      10  AK4637_EQ5_GainSetting
+      30  AK4637_EQ_Coefficient
+      18  AK4637_EQ_CommenGain_Select
+      30  AK4637_HPF2_Coefficient
+      93  AK4637_Init
+      19  AK4637_Input_VolumeControl
+      30  AK4637_LPF_Coefficient
+       5  AK4637_MPWROutPut
+       5  AK4637_MPWR_PwMng
+       5  AK4637_MicGain
+      28  AK4637_Mode_Control1
+      27  AK4637_Mode_Control3_1
+       5  AK4637_MonoLineOutput_Volume
+       5  AK4637_MonoOut_Select
+      21  AK4637_OutputTransitionTime
+       5  AK4637_PwMng_ADC
+       5  AK4637_PwMng_BeepInput
+       5  AK4637_PwMng_DAC
+       5  AK4637_PwMng_DigitMIC
+      20  AK4637_PwMng_PFIL
+      21  AK4637_PwMng_SpkAmp
+       5  AK4637_PwMng_VCM
+      40  AK4637_Read_Reg
+      34  AK4637_RecordingPlaybackMode
+      22  AK4637_SL_PwSave
+       5  AK4637_SPK_AmpOutputLevel
+      21  AK4637_SidetoneDigitalVolume
+     131  AK4637_SignalPath
+      27  AK4637_SysClk
+      34  AK4637_TimerSelect
+      27  AK4637_Write_Reg
+
+ 
+ 1 495 bytes in section .far_func.text
+    48 bytes in section .near.rodata
+ 
+ 1 495 bytes of CODE  memory
+    48 bytes of CONST memory
+
+Errors: none
+Warnings: none

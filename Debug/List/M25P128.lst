@@ -1,0 +1,320 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 15/Nov/2017  10:59:36
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  E:\AirTone\AirToneMLL\DRIVER\Memory\M25P128.c
+#    Command line =  
+#        E:\AirTone\AirToneMLL\DRIVER\Memory\M25P128.c -e -Oh --debug
+#        --code_model medium --data_model medium -o
+#        E:\AirTone\AirToneMLL\Debug\Obj\ --dlib_config "F:\IAR
+#        Systems\Embedded Workbench 7.0\stm8\LIB\dlstm8mmn.h" -lcN
+#        E:\AirTone\AirToneMLL\Debug\List\ -I E:\AirTone\AirToneMLL\BSP\ -I
+#        E:\AirTone\AirToneMLL\USER\ -I E:\AirTone\AirToneMLL\DRIVER\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Memory\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        E:\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  E:\AirTone\AirToneMLL\Debug\List\M25P128.lst
+#    Object file  =  E:\AirTone\AirToneMLL\Debug\Obj\M25P128.o
+#
+###############################################################################
+
+E:\AirTone\AirToneMLL\DRIVER\Memory\M25P128.c
+      1          /*******************************************************************************
+      2           * Brief:   Flash library, based on 128MB M25P128, run on STM8L15x
+      3           * Author:	taotsi
+      4           * Origin:  STM8L152C eval-board based example project
+      5           * UpDate:	2017.03.30
+      6           * Note:    This driver has not been completet yet.
+      7           *******************************************************************************/
+      8          
+      9          /* Includes -------------------------------------------------------------------*/
+     10          #include "M25P128.h"
+     11          
+     12          
+     13          /* Functions ------------------------------------------------------------------*/
+     14          
+     15          /**
+     16            * Brief:  Initialize the M25P128 driver.
+     17            */
+     18          void M25P_Init(void)
+     19          {
+     20          
+     21              /* Note: SPI pins have been configured in SPI_Config(). */
+     22              
+     23            
+     24              //STM8_M25P_HOLD_H();
+     25              //STM8_M25P_W_H();
+     26          }
+     27          
+     28          
+     29          /**
+     30            * Brief:  Writes more than one byte to the FLASH with a single WRITE cycle
+     31            *           (Page WRITE sequence).
+     32            * Note:   The number of byte can't exceed the FLASH page size.
+     33            * Param:  pBuffer: Pointer to the buffer  containing the data to be written
+     34            *                    to the FLASH.
+     35            * Param:  Addr:    FLASH's internal address to write to.
+     36            * Param:  nBytes:  Number of bytes to write to the FLASH, must be equal
+     37            *                    or less than 256 which is the page size of M25P128.
+     38            */
+     39          void M25P_Write_Page(uint8_t* pBuffer, uint32_t Addr, uint16_t nBytes)
+     40          {
+     41              M25P_WriteEnable();
+     42          
+     43              SPI_M25P_CSN_L();
+     44          
+     45              SPI_ExchangeByte(M25P_CMD_WRITE);
+     46          
+     47              SPI_ExchangeByte((uint8_t)((Addr & 0xFF0000)>>16));
+     48              SPI_ExchangeByte((uint8_t)((Addr & 0xFF00)>>8));
+     49              SPI_ExchangeByte((uint8_t)(Addr & 0xFF));
+     50          
+     51              while(nBytes--)
+     52              {
+     53                  SPI_ExchangeByte(*pBuffer);
+     54                  pBuffer++;
+     55              }
+     56          
+     57              SPI_M25P_CSN_H();
+     58          
+     59              M25P_WaitForWriteEnd();
+     60          }
+     61          
+     62          
+     63          /**
+     64            * Brief:  Reads a block of data from the FLASH.
+     65            * Param:  pBuffer: pointer to the buffer that receives the data read from the FLASH.
+     66            * Param:  Addr:    FLASH's internal address to read from.
+     67            * Param:  nBytes:  number of bytes to read from the FLASH.
+     68            */
+     69          void M25P_Read_Buffer(uint8_t* pBuffer, uint32_t Addr, uint16_t nBytes)
+     70          {
+     71              SPI_M25P_CSN_L();
+     72          
+     73              SPI_ExchangeByte(M25P_CMD_READ);
+     74          
+     75              SPI_ExchangeByte((uint8_t)((Addr & 0xFF0000)>>16));
+     76              SPI_ExchangeByte((uint8_t)((Addr & 0xFF00)>>8));
+     77              SPI_ExchangeByte((uint8_t)(Addr & 0xFF));
+     78          
+     79              while(nBytes--)
+     80              {
+     81                  *pBuffer = SPI_ReadByte();
+     82                  //oPrintf("%X", *pBuffer);
+     83                  pBuffer++;
+     84              }
+     85          
+     86              SPI_M25P_CSN_H();
+     87          }
+     88          
+     89          
+     90          void M25P_Write_Byte(uint8_t byte, uint32_t addr)
+     91          {
+     92              M25P_WriteEnable();
+     93              SPI_M25P_CSN_L();
+     94              SPI_ExchangeByte(M25P_CMD_WRITE);
+     95          
+     96              SPI_ExchangeByte((uint8_t)((addr & 0xFF0000)>>16));
+     97              SPI_ExchangeByte((uint8_t)((addr & 0xFF00)>>8));
+     98              SPI_ExchangeByte((uint8_t)(addr & 0xFF));
+     99          
+    100              SPI_ExchangeByte(byte);
+    101          
+    102              SPI_M25P_CSN_H();
+    103              M25P_WaitForWriteEnd();
+    104          }
+    105          
+    106          
+    107          uint8_t M25P_Read_Byte(uint32_t addr)
+    108          {
+    109              uint8_t byteread;
+    110              SPI_M25P_CSN_L();
+    111              
+    112              SPI_ExchangeByte(M25P_CMD_READ);
+    113          
+    114              SPI_ExchangeByte((uint8_t)((addr & 0xFF0000)>>16));
+    115              SPI_ExchangeByte((uint8_t)((addr & 0xFF00)>>8));
+    116              SPI_ExchangeByte((uint8_t)(addr & 0xFF));
+    117          
+    118              byteread =  SPI_ExchangeByte(0xFF);
+    119              
+    120              SPI_M25P_CSN_H();
+    121              
+    122              return byteread;
+    123          }
+    124          
+    125          
+    126          /**
+    127            * Brief:  Erases the specified FLASH sector.
+    128            * Param : Addr: address of the sector to erase.
+    129            */
+    130          void M25P_Erase_Sector(uint32_t Addr)
+    131          {
+    132              //oPrint(">M25P Sector Erasing");
+    133              M25P_WriteEnable();
+    134          
+    135              SPI_M25P_CSN_L();
+    136          
+    137              SPI_ExchangeByte(M25P_CMD_SE);
+    138          
+    139              SPI_ExchangeByte((uint8_t)((Addr & 0xFF0000)>>16));
+    140              SPI_ExchangeByte((uint8_t)((Addr & 0xFF00)>>8));
+    141              SPI_ExchangeByte((uint8_t)(Addr & 0xFF));
+    142          
+    143              SPI_M25P_CSN_H();
+    144          
+    145              //M25P_WaitForWriteEnd();
+    146          
+    147              //uint8_t i = 0;
+    148          
+    149              oProgBar_Start();
+    150              SPI_M25P_CSN_L();
+    151              SPI_ExchangeByte(M25P_CMD_RDSR);
+    152              for(uint8_t i = 0; ((SPI_ExchangeByte(0xA5)) & M25P_FLAG_WIP) == SET; i++ )
+    153              {
+    154                  Delay_ms(35);
+    155                  oProgBar_Dis(i++);
+    156              }
+    157              SPI_M25P_CSN_H();
+    158              oProgBar_End();
+    159              
+    160              oPrint(">M25P Sector Erased");
+    161          }
+    162          
+    163          
+    164          /**
+    165            * Brief:  Erases the entire FLASH.
+    166            * Note:   When thare are block being protected, bulk erasion won't work.
+    167            *           So the protection status should be checked before erasing.
+    168            *           and the status whether the erasion succeeds or fails should
+    169            *           be returned.
+    170            */
+    171          void M25P_Erase_Bulk(void)
+    172          {
+    173              M25P_WriteEnable();
+    174          
+    175              SPI_M25P_CSN_L();
+    176          
+    177              SPI_ExchangeByte(M25P_CMD_BE);
+    178          
+    179              SPI_M25P_CSN_H();
+    180          
+    181              //M25P_WaitForWriteEnd();
+    182              
+    183              oProgBar_Start();
+    184              SPI_M25P_CSN_L();
+    185              SPI_ExchangeByte(M25P_CMD_RDSR);
+    186              for(uint8_t i = 0; ((SPI_ExchangeByte(0xA5)) & M25P_FLAG_WIP) == SET; i++)
+    187              {
+    188                  Delay_ms(200);
+    189                  oProgBar_Dis(i);
+    190              }
+    191              SPI_M25P_CSN_H();
+    192              oProgBar_End();
+    193          }
+    194          
+    195          
+    196          /**
+    197            * Brief:  Enables the write access to the FLASH.
+    198            */
+    199          void M25P_WriteEnable(void)
+    200          {
+    201              SPI_M25P_CSN_L();
+    202              SPI_ExchangeByte(M25P_CMD_WREN);
+    203              SPI_M25P_CSN_H();
+    204          }
+    205          
+    206          
+    207          /**
+    208            * Brief:  Polls the status of the Write In Progress (WIP) flag in the FLASH's
+    209            *           status register and loop until write opertaion has completed.
+    210            */
+    211          void M25P_WaitForWriteEnd(void)
+    212          {
+    213              uint8_t FlashStatus = 0;
+    214          
+    215              SPI_M25P_CSN_L();
+    216              SPI_ExchangeByte(M25P_CMD_RDSR);
+    217              do
+    218              {
+    219                  /* sent a dummy byte to generate the clock needed
+    220                       by the Flash. You can read status register continuously. */
+    221                  FlashStatus = SPI_ExchangeByte(0xA5);
+    222              }
+    223              while((FlashStatus & M25P_FLAG_WIP) == SET);
+    224              SPI_M25P_CSN_H();
+    225          }
+    226          
+    227          
+    228          uint8_t M25P_Read_Status(void)
+    229          {
+    230              SPI_M25P_CSN_L();
+    231              SPI_ExchangeByte(M25P_CMD_RDSR);
+    232              SPI_M25P_CSN_H();
+    233              return SPI_ReadByte();
+    234          }
+    235          
+    236          
+    237          /**
+    238            *
+    239            * 注意：这个函数还不能用，不知道为啥！
+    240            */
+    241          void M25P_WriteProtect(M25P_AreaProtct_T area)
+    242          {
+    243              uint8_t st = M25P_Read_Status();
+    244              st &= (area<<2);
+    245              
+    246              SPI_M25P_CSN_L();
+    247              SPI_ExchangeByte(M25P_CMD_WRSR);
+    248              SPI_ExchangeByte(st);
+    249              SPI_M25P_CSN_H();
+    250          }
+    251          /* ----------------------------- End of file --------------------------------- */
+    252          /*******************************************************************************/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       9  ??Subroutine10_0
+       5  ??Subroutine11_0
+       5  ??Subroutine12_0
+       4  ??Subroutine13_0
+       6  ??Subroutine14_0
+      17  ?Subroutine0
+       6  ?Subroutine1
+       6  ?Subroutine2
+       6  ?Subroutine3
+       4  ?Subroutine4
+       9  ?Subroutine5
+      18  ?Subroutine6
+      11  ?Subroutine7
+      35  ?Subroutine8
+      13  ?Subroutine9
+      20  ?_0
+      49  M25P_Erase_Bulk
+      66  M25P_Erase_Sector
+       1  M25P_Init
+      50  M25P_Read_Buffer
+      22  M25P_Read_Byte
+       8  M25P_Read_Status
+      15  M25P_WaitForWriteEnd
+      11  M25P_WriteEnable
+      40  M25P_WriteProtect
+      44  M25P_Write_Byte
+      64  M25P_Write_Page
+
+ 
+ 524 bytes in section .far_func.text
+  20 bytes in section .near.rodata
+ 
+ 524 bytes of CODE  memory
+  20 bytes of CONST memory
+
+Errors: none
+Warnings: none

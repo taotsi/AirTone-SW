@@ -1,0 +1,203 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 14/May/2017  21:08:42
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  H:\ProjectFile\AirTone\AirToneMLL\USER\BasicOp.c
+#    Command line =  
+#        H:\ProjectFile\AirTone\AirToneMLL\USER\BasicOp.c -e -Oh --debug
+#        --code_model medium --data_model medium -o
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\Obj\ --dlib_config
+#        "F:\Embedded Workbench 7.0\stm8\LIB\dlstm8mmn.h" -lcN
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\List\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\BSP\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\USER\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\Memory\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  H:\ProjectFile\AirTone\AirToneMLL\Debug\List\BasicOp.lst
+#    Object file  =  H:\ProjectFile\AirTone\AirToneMLL\Debug\Obj\BasicOp.o
+#
+###############################################################################
+
+H:\ProjectFile\AirTone\AirToneMLL\USER\BasicOp.c
+      1          /*******************************************************************************
+      2           * Brief:   Because the C libraries supported are not complete, so I have to
+      3           *          write some of them on my own.
+      4           * Author:	taotsi
+      5           * Update:	2017.03.27
+      6           *******************************************************************************/
+      7          
+      8          /* Includes -------------------------------------------------------------------*/
+      9          #include "BasicOp.h"
+     10          
+     11          
+     12          /* Functions ------------------------------------------------------------------*/
+     13          
+     14          /* Math Calculation Functions **************************************************/
+     15          
+     16          /**
+     17            * Brief:  Calculate  the n-th power of b.
+     18            * Param:  b: the base.
+     19            * Param:  n: the exponent.
+     20            * RetVal: the power.
+     21            */
+     22          unsigned long power(int b, int n)
+     23          {
+     24              unsigned long pow = 1;
+     25              for(int i=0; i<n; i++)
+     26              {
+     27                  pow *= b;
+     28              }
+     29              return pow;
+     30          }
+     31          
+     32          
+     33          /**
+     34            * Brief:  Convert a decimal number into a string.
+     35            * Param:  x:      Number to convert, can be from 0 to 65536.
+     36            * Param:  str[6]: String converted with 6 digits at most.
+     37            */
+     38          void Num2Str(unsigned short x, char str[6])
+     39          {
+     40              unsigned char Num[6];
+     41              unsigned short temp = 1;
+     42              int d = 0;
+     43              
+     44              /* Get the digit of the Number. */
+     45              while(x/power(10, d))
+     46              {
+     47                  d++;
+     48              }
+     49              
+     50              /* The digit being zero means the Number is zero. */
+     51              if(d == 0)
+     52              {
+     53                  str[0] = '0';
+     54                  str[1] = '\0';
+     55              }
+     56              
+     57              /* Convert the number into the relative string. */
+     58              else
+     59              {
+     60                  for(int i=0; i<d; i++)
+     61                  {
+     62                      temp = x % power(10, d-i);
+     63                      temp /= power(10,d-i-1);
+     64                      Num[i] = temp;
+     65                      str[i] = Num[i] + '0';
+     66                  }
+     67                  str[d] = '\0';
+     68              }
+     69          }
+     70          
+     71          
+     72          /**
+     73            * Brief:  Convert a Hexadecimal number into a string.
+     74            */
+     75          void NumX2Str(unsigned short x, char str[6])
+     76          {
+     77              unsigned char Num[6];
+     78              unsigned short temp = 1;
+     79              int d = 0;
+     80              
+     81              /* Get the digit of the Number. */
+     82              while(x/power(16, d))
+     83              {
+     84                  d++;
+     85              }
+     86              
+     87              /* To make the hex always be 2-digit or 4-digit */
+     88              if((d == 1) || (d == 3))
+     89                  d++;
+     90              
+     91              /* The digit being zero means the Number is zero. */
+     92              if(d == 0)
+     93              {
+     94                  str[0] = '0';
+     95                  str[1] = 'x';
+     96                  str[2] = '0';
+     97                  str[3] = '0';
+     98                  str[4] = '\0';
+     99              }
+    100              
+    101              /* Convert the number into the relative string. */
+    102              else
+    103              {
+    104                  str[0] = '0';
+    105                  str[1] = 'x';
+    106                  
+    107                  for(int i=0; i<d; i++)
+    108                  {
+    109                      temp = x % power(16, d-i);
+    110                      temp /= power(16,d-i-1);
+    111                      Num[i] = temp;
+    112                      if(Num[i] < 10)
+    113                          str[i+2] = Num[i] + '0';
+    114                      else
+    115                          str[i+2] = Num[i] - 10  + 'A'; 
+    116                  }
+    117                  
+    118                  /* 无论是超出长度，还是遇到\0，都会使字符串终结。这样做有一个缺点，
+    119                       就是长度在最长的时候，会没有\0，没法判断终止。
+    120                       以后再改进。                                                   */
+    121                  if(d < 4)
+    122                      str[d+2] = '\0';
+    123              }
+    124          }
+    125          
+    126          
+    127          /**
+    128            * Brief: Convert char '0'~'9' and 'A'~'F' to the associated number.       
+    129            */
+    130          unsigned short Char2Num(char c)
+    131          {
+    132              unsigned short x;
+    133          
+    134              if(c >= '0' && c <= '9')
+    135              {
+    136                  x = c - '0';
+    137              }
+    138              else if (c >= 'A' && c <= 'F')
+    139              {
+    140                  x= c + 10 - 'A';
+    141              }
+    142              /* 这里应该有一个检错的机制，暂时不写了 */
+    143              else
+    144              {
+    145                  oPrint(">Error: This is not a char!");
+    146              }
+    147              
+    148              return x;
+    149          }
+    150          /* ----------------------------- End of file --------------------------------- */
+    151          /*******************************************************************************/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+      25  ?Subroutine0
+      11  ?Subroutine1
+      22  ?Subroutine2
+       9  ?Subroutine3
+      28  ?_0
+      55  Char2Num
+     213  Num2Str
+     294  NumX2Str
+      54  power
+
+ 
+ 683 bytes in section .far_func.text
+  28 bytes in section .near.rodata
+ 
+ 683 bytes of CODE  memory
+  28 bytes of CONST memory
+
+Errors: none
+Warnings: 1

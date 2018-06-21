@@ -1,0 +1,404 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 15/Nov/2017  10:59:36
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  E:\AirTone\AirToneMLL\DRIVER\OLED\OLED.c
+#    Command line =  
+#        E:\AirTone\AirToneMLL\DRIVER\OLED\OLED.c -e -Oh --debug --code_model
+#        medium --data_model medium -o E:\AirTone\AirToneMLL\Debug\Obj\
+#        --dlib_config "F:\IAR Systems\Embedded Workbench
+#        7.0\stm8\LIB\dlstm8mmn.h" -lcN E:\AirTone\AirToneMLL\Debug\List\ -I
+#        E:\AirTone\AirToneMLL\BSP\ -I E:\AirTone\AirToneMLL\USER\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\ -I E:\AirTone\AirToneMLL\DRIVER\Memory\
+#        -I E:\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        E:\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  E:\AirTone\AirToneMLL\Debug\List\OLED.lst
+#    Object file  =  E:\AirTone\AirToneMLL\Debug\Obj\OLED.o
+#
+###############################################################################
+
+E:\AirTone\AirToneMLL\DRIVER\OLED\OLED.c
+      1          /*******************************************************************************
+      2           * Brief:   OLED library based on SSD1306, run on STM8L152x
+      3           * Author:  Taotsi
+      4           * Origin:  Internet
+      5           * Update:	2017.04.05
+      6           * Note:    This driver is not complete. For more commands, see SSD1306 datasheet.
+      7           *******************************************************************************/
+      8          
+      9          /* Includes -------------------------------------------------------------------*/
+     10          #include "OLED.h"
+     11          #include "SPIsim.h"
+     12          #include "OLED_font.h"
+     13          #include "BSP.h"
+     14          //note: H files above must be included in OLED.c. 
+     15          //      It won't work if they are included in BSP.h.
+     16          
+     17          
+     18          /* Functions ------------------------------------------------------------------*/
+     19          
+     20          /* High layer functions ********************************************************/
+     21          
+     22          /**
+     23            * Brief:  Initialize the OLED. Refer to SSD1306 datasheet. 
+     24            */
+     25          void OLED_Init(void)
+     26          {
+     27              SPI_OLED_RST_L();    // Reset the OLED
+     28              Delay_ms(100);       // waiting for reset
+     29              SPI_OLED_RST_H();
+     30              
+     31              OLED_WrCmd(0xae);    // Turn off the OLED
+     32              OLED_WrCmd(0x00);    // Set low column address
+     33              OLED_WrCmd(0x10);    // Set high column address
+     34              OLED_WrCmd(0x40);    // Set Mapping RAM Display Start Line (0x00~0x3F)
+     35              OLED_WrCmd(0x81);    // Set contrast control register
+     36              OLED_WrCmd(0xff);    // Set SEG Output Current Brightness
+     37              OLED_WrCmd(0xa1);    // Set SEG/Column Mapping       0xa0左右反置 0xa1正常
+     38              OLED_WrCmd(0xc8);    // Set COM/Row Scan Direction   0xc0上下反置 0xc8正常
+     39              OLED_WrCmd(0xa6);    // Set normal display
+     40              OLED_WrCmd(0xa8);    // Set multiplex ratio(1 to 64)
+     41              OLED_WrCmd(0x3f);    // 1/64 duty
+     42              OLED_WrCmd(0xd3);    // Set display offset Shift Mapping RAM Counter
+     43              OLED_WrCmd(0x00);    // Not offset
+     44              OLED_WrCmd(0xd5);    // Set display clock divide ratio/oscillator frequency
+     45              OLED_WrCmd(0x80);    // Set divide ratio, Set Clock as 100 Frames/Sec
+     46              OLED_WrCmd(0xd9);    // Set pre-charge period
+     47              OLED_WrCmd(0xf1);    // Set Pre-Charge as 15 Clocks & Discharge as 1 Clock
+     48              OLED_WrCmd(0xda);    // Set com pins hardware configuration
+     49              OLED_WrCmd(0x12);
+     50              OLED_WrCmd(0xdb);    // Set vcomh
+     51              OLED_WrCmd(0x40);    // Set VCOM Deselect Level
+     52              OLED_WrCmd(0x20);    // Set Page Addressing Mode (0x00/0x01/0x02)
+     53              OLED_WrCmd(0x02);    //
+     54              OLED_WrCmd(0x8d);    // Set Charge Pump enable/disable
+     55              OLED_WrCmd(0x14);    // Set(0x10) disable
+     56              OLED_WrCmd(0xa4);    // Disable Entire Display On (0xa4/0xa5)
+     57              OLED_WrCmd(0xa6);    // Disable Inverse Display On (0xa6/a7)
+     58              OLED_WrCmd(0xaf);    // Turn on oled panel
+     59              
+     60              OLED_Clear();        // Clear the screen
+     61          }
+     62          
+     63          
+     64          /**
+     65            * Brief:  Display a 6px*8px char from a font library.
+     66            * Param:  page:   Indicates the row position where you want to put the char.
+     67            *                   It can be from 0 to 7. 
+     68            * Param:  colomn: Indicates the column position where you want to put the char.
+     69            *                   It can be from 0 to 127.
+     70            * Param:  ch:     The char you want to display.
+     71            */
+     72          void OLED_Dis_Char(uint8_t page, uint8_t column, char ch)
+     73          {
+     74              uint8_t j = 0;
+     75              uint16_t pos = 0;
+     76              
+     77              if (ch < ' ')
+     78                  return;
+     79          
+     80              pos = 6 * (ch-' ');
+     81              OLED_Set_Pos(page, column);
+     82              for (j=0; j<6; j++)     
+     83              {
+     84                  OLED_WrDat(Font6x8[pos++]);
+     85              }
+     86          }
+     87          
+     88          
+     89          /**
+     90            * Brief:  Display a 6px*8px char from a font library, in REVERSE type.
+     91            * Param:  page:   Indicates the row position where you want to put the char.
+     92            *                   It can be from 0 to 7. 
+     93            * Param:  colomn: Indicates the column position where you want to put the char.
+     94            *                   It can be from 0 to 127.
+     95            * Param:  ch:     The char you want to display.
+     96            */
+     97          void OLED_Dis_Char_Rev(uint8_t page, uint8_t column, char ch)
+     98          {
+     99              uint8_t j = 0;
+    100              uint16_t pos = 0;
+    101              
+    102              if (ch < ' ')
+    103                  return;
+    104          
+    105              pos = 6 * (ch-' ');
+    106              OLED_Set_Pos(page, column);
+    107              for (j=0; j<6; j++)     
+    108              {
+    109                  /* All the font data are reversed. */
+    110                  OLED_WrDat(~(Font6x8[pos++]));
+    111              }
+    112          }
+    113          
+    114          
+    115          /**
+    116            * Brief:  Display a string using 6px*8px chars.
+    117            * param:  page:   Indicates the row position where you want to put the string.
+    118            *                   It can be from 0 to 7.
+    119            * Param:  comume: Indicates the column position where you want to put the string.
+    120            *                   It can be from 0 to 127.
+    121            *                 Note that the chars beyond the screen row of the string 
+    122            *                   will be cut off.
+    123            * Param:  *str:   Pointer of the string you want to display.
+    124            * 注意，这个函数仅适合起始位置为0的字符串显示！需要改进
+    125            */
+    126          void OLED_Dis_Str(uint8_t page, uint8_t column, char *str)
+    127          {
+    128              int i = 0;
+    129              
+    130              while (*str != '\0')
+    131              {
+    132                  /* Chars beyond the screen row of the string will be cut off. */
+    133                  if(i<21)
+    134                  {
+    135                      OLED_Dis_Char(page, column+1, *str++);
+    136                      column += 6;
+    137                      i++;
+    138                  }
+    139                  else
+    140                      break;
+    141              }
+    142              
+    143              /* Fill the same page where there are no chars written with blank. */
+    144              if(i<21)
+    145              {
+    146                  for(int j=i; j<21; j++)
+    147                  {
+    148                      OLED_Dis_Char(page, column+1, ' ');
+    149                      column += 6;
+    150                  }
+    151              }
+    152              
+    153              /* Within 128px in each row 21 chars can be put at most. And the rest
+    154                   two pixels aka the first and the last will be filled with blank. */
+    155              OLED_Set_Pos(page, 127);
+    156              OLED_WrDat(0x00);
+    157              OLED_Set_Pos(page, 0);
+    158              OLED_WrDat(0x00);
+    159          }
+    160          
+    161          
+    162          /**
+    163            * Brief:  Display a string using 6px*8px chars, in REVERSE type.
+    164            * param:  page:   Indicates the row position where you want to put the string.
+    165            *                   It can be from 0 to 7.
+    166            * Param:  comume: Indicates the column position where you want to put the string.
+    167            *                   It can be from 0 to 127.
+    168            *                 Note that the chars beyond the screen row of the string 
+    169            *                   will be cut off.
+    170            * Param:  *str:   Pointer of the string you want to display.
+    171            * 注意，这个函数仅适合起始位置为0的字符串显示！需要改进
+    172            */
+    173          void OLED_Dis_Str_Rev(uint8_t page, uint8_t column, char *str)
+    174          {
+    175              int i = 0;
+    176              int col = 0;
+    177              
+    178              /* Within 128px in each row 21 chars can be put at most. 
+    179                 Fill the first column which will never be used if the tring
+    180                   does not start to display on the first column, with blank. */
+    181              OLED_Set_Pos(page, 0);
+    182              OLED_WrDat(0x00);
+    183              
+    184              /* Add an extra 8px column white to the start of the string. */
+    185              //OLED_Set_Pos(page, column);
+    186              //OLED_WrDat(0xFF);
+    187              
+    188              while (*str)
+    189              {
+    190                  /* Chars beyond the screen row of the string will be cut off. */
+    191                  if(i<21)
+    192                  {
+    193                      /* All the chars are reversed. */
+    194                      OLED_Dis_Char_Rev(page, column+1, *str++);
+    195                      column += 6;
+    196                      i++;
+    197                  }
+    198                  else
+    199                      break;
+    200                  /* Used to add an extra 8px column white to the end of the string. */
+    201                  col = column+1;
+    202              }
+    203              
+    204              /* Fill the same page where there are no chars written with blank. */
+    205              if(i<21)
+    206              {
+    207                  for(int j=i; j<21; j++)
+    208                  {
+    209                      OLED_Dis_Char(page, column+1, ' ');
+    210                      column += 6;
+    211                  }
+    212                  /* Within 128px in each row 21 chars can be put at most. 
+    213                     Fill the 127th column which will never be used if the number
+    214                       of the chars is less than 21, with blank.                  */
+    215                  OLED_Set_Pos(page, 127);
+    216                  OLED_WrDat(0x00);
+    217              }
+    218              
+    219              /* Add an extra 8px column white to the end of the string. */
+    220              //OLED_Set_Pos(page, col);
+    221              //OLED_WrDat(0xFF);
+    222          }
+    223          
+    224          
+    225          /**
+    226            * Brief:  Display a 128*64 picture with data written in a one-dimension
+    227            *           array with 8192 chars in it.
+    228            * Param:  *data:  Where the picture data is stored.
+    229            */
+    230          void OLED_Dis_Pic(uint8_t* data)
+    231          {
+    232              int i=0;
+    233              for(int page=0; page<8; page++)
+    234              {
+    235                  OLED_Set_Pos(page, 0);
+    236                  for(int col=0; col<128; col++)
+    237                  {
+    238                      OLED_WrDat(data[i++]);
+    239                  }
+    240              }
+    241          }
+    242          
+    243          
+    244          /* Low layer functions *********************************************************/
+    245          
+    246          /**
+    247            * Brief:  Set the start position for page addressing mode.
+    248            * Param:  page:   Set the start page position.
+    249            *                   It can be from 0 to 7.
+    250            * Param:  column: Set the start column position.
+    251            *                   It can be from 0 to 127.
+    252            */
+    253          void OLED_Set_Pos(uint8_t page, uint8_t column)
+    254          {
+    255              OLED_WrCmd(0xb0 | (page&0x07));
+    256              OLED_WrCmd(0x10 | ((column>>4)&0x0F)); // higher nibble of the column start address
+    257              OLED_WrCmd(column & 0x0F);             // lower nibble of the column start address
+    258          }
+    259          
+    260          
+    261          /**
+    262            * Brief:  Write command to OLED.
+    263            * Param:  data: command to write.
+    264            */
+    265          void OLED_WrCmd(uint8_t cmd)
+    266          {
+    267              SPI_OLED_DC_CMD();
+    268              
+    269              SPI_OLED_CSN_L();
+    270              SPI_ExchangeByte(cmd);
+    271              SPI_OLED_CSN_H();
+    272          }
+    273          
+    274          
+    275          /**
+    276            * Brief:  Write data to OLED.
+    277            * Param:  data: data to write.
+    278            */
+    279          void OLED_WrDat(uint8_t data)
+    280          {
+    281              SPI_OLED_DC_DATA();
+    282              
+    283              SPI_OLED_CSN_L();
+    284              SPI_ExchangeByte(data);
+    285              SPI_OLED_CSN_H();
+    286          }
+    287          
+    288          
+    289          /**
+    290            * Brief:  Clear the screen up.
+    291            */
+    292          void OLED_Clear(void)
+    293          {
+    294              for(int page=0; page<8; page++)
+    295              {
+    296                  OLED_Set_Pos(page, 0);
+    297                  for(int col=0; col<128; col++)
+    298                  {
+    299                      OLED_WrDat(0x00);
+    300                  }
+    301              }
+    302              
+    303              /*
+    304              uint8_t y, x;
+    305              for(y=0; y<8; y++)
+    306              {
+    307                  OLED_WrCmd(0xb0 + y);
+    308                  OLED_WrCmd(0x01);
+    309                  OLED_WrCmd(0x10);
+    310                  for (x=0; x<128; x++)
+    311                  OLED_WrDat(0x00);
+    312              }
+    313              */
+    314          }
+    315          
+    316          
+    317          /**
+    318            * Brief:  Display a snow screen for fun and for test purpose.
+    319            */
+    320          void OLED_Dis_snow(void)
+    321          {
+    322              for(int page=0; page<8; page++)
+    323              {
+    324                  OLED_Set_Pos(page, 0);
+    325                  for(int col=0; col<126; col++)
+    326                  {
+    327                      OLED_WrDat(rand());
+    328                  }
+    329              }
+    330          }
+    331          
+    332          /* ----------------------------- End of file --------------------------------- */
+    333          /*******************************************************************************/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+      13  ??Subroutine15_0
+       8  ??Subroutine16_0
+       7  ??Subroutine17_0
+      11  ??Subroutine18_0
+      21  ?Subroutine0
+       7  ?Subroutine1
+      10  ?Subroutine10
+      12  ?Subroutine11
+      12  ?Subroutine12
+       9  ?Subroutine13
+       2  ?Subroutine14
+      17  ?Subroutine2
+      15  ?Subroutine3
+      32  ?Subroutine4
+       4  ?Subroutine5
+       4  ?Subroutine6
+       9  ?Subroutine7
+      18  ?Subroutine8
+      10  ?Subroutine9
+     546  Font6x8
+      60  OLED_Clear
+      38  OLED_Dis_Char
+      39  OLED_Dis_Char_Rev
+      84  OLED_Dis_Pic
+      90  OLED_Dis_Str
+      90  OLED_Dis_Str_Rev
+      52  OLED_Dis_snow
+     156  OLED_Init
+      37  OLED_Set_Pos
+       9  OLED_WrCmd
+       5  OLED_WrDat
+
+ 
+ 881 bytes in section .far_func.text
+ 546 bytes in section .near.rodata
+ 
+ 881 bytes of CODE  memory
+ 546 bytes of CONST memory
+
+Errors: none
+Warnings: 1

@@ -1,0 +1,129 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 15/Nov/2017  10:59:36
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  E:\AirTone\AirToneMLL\USER\main.c
+#    Command line =  
+#        E:\AirTone\AirToneMLL\USER\main.c -e -Oh --debug --code_model medium
+#        --data_model medium -o E:\AirTone\AirToneMLL\Debug\Obj\ --dlib_config
+#        "F:\IAR Systems\Embedded Workbench 7.0\stm8\LIB\dlstm8mmn.h" -lcN
+#        E:\AirTone\AirToneMLL\Debug\List\ -I E:\AirTone\AirToneMLL\BSP\ -I
+#        E:\AirTone\AirToneMLL\USER\ -I E:\AirTone\AirToneMLL\DRIVER\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Memory\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        E:\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  E:\AirTone\AirToneMLL\Debug\List\main.lst
+#    Object file  =  E:\AirTone\AirToneMLL\Debug\Obj\main.o
+#
+###############################################################################
+
+E:\AirTone\AirToneMLL\USER\main.c
+      1          /******************************************************************
+      2           * Author:	taotsi
+      3           * UpDate:	2017.01.06
+      4           ******************************************************************/
+      5          
+      6          #include "BSP.h"
+      7          
+      8          extern uint16_t BV = 0;
+      9          extern uint8_t logo_guitar[];
+     10          extern volatile uint8_t UI;
+     11          
+     12          extern uint16_t nAckErr;
+     13          extern uint16_t nAck;
+     14          
+     15          extern uint8_t sw = 1;
+     16          
+     17          extern uint16_t dlct = 0;
+     18          
+     19          void main(void)
+     20          {
+     21              System_Config();
+     22              
+     23          
+     24          
+     25              /*
+     26              oPrintf("%X", AK4637_Read_Reg(MdCtrl2_Address));
+     27              AK4637_Write_Reg(MdCtrl2_Address, 0xC8);
+     28              oPrintf("%X", AK4637_Read_Reg(MdCtrl2_Address));
+     29              */
+     30              
+     31              /*// these codes works!
+     32              uint8_t imgsz[2];
+     33              M25P_Read_Buffer(imgsz, FIndx_CCIMG_Master_Size, 2);
+     34              //oPrintf("%X %X %X %X", imgsz[0],imgsz[1]);
+     35              uint16_t imgsize = (imgsz[0] << 8) + imgsz[1];
+     36              oPrintf("%X", imgsize);
+     37              
+     38              uint8_t CRC32[4];
+     39              MemMng_DataTrans_M25P_CC8530_IMG(FIndx_CCIMG_Slave_Processed);
+     40              CC8530_BL_FLASH_VERIFY(imgsize, CRC32);
+     41              oPrintf("%X %X %X %X", CRC32[0],CRC32[1],CRC32[2],CRC32[3]);
+     42              */
+     43              
+     44              /*
+     45              uint8_t info[24];
+     46              CC8530_DI_GET_CHIP_INFO(info);
+     47              oPrintf("%X %X", info[0], info[1]);
+     48              */
+     49              
+     50              
+     51              //CC8530_SYS_RESET();
+     52              /*
+     53              uint8_t br = CC8530_Read_Byte(0x6005);
+     54              oPrintf("%X", br);
+     55              CC8530_Write_Byte(0x6005, 0x2C);
+     56              br = CC8530_Read_Byte(0x6005);
+     57              oPrintf("%X", br);
+     58              */
+     59              //MemMng_DataProc_Char_HEX(FIndx_CCIMG_Master_Origin, FIndx_CCIMG_Master_Processed, 2048);
+     60              
+     61              while (1)
+     62              {
+     63                  while(UI==0)
+     64                  {
+     65                      oPrintf("%c", UART_Receive_Byte());
+     66                  }
+     67                  while(UI==1)
+     68                  {
+     69                      OLED_Dis_Str_Rev(0, 90, "tick");
+     70                      Delay_ms(500);
+     71                      OLED_Dis_Str(0, 90, "tock");
+     72                      Delay_ms(500);
+     73                  }
+     74              }
+     75          }
+     76          
+     77          /* ------------------------- End of file ------------------------ */
+     78          /******************************************************************/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+      12  ?Subroutine0
+       3  ?_0
+       5  ?_1
+       5  ?_2
+       2  BV
+       2  dlct
+      68  main
+       1  sw
+
+ 
+ 80 bytes in section .far_func.text
+  4 bytes in section .near.bss
+  1 byte  in section .near.data
+ 13 bytes in section .near.rodata
+ 
+ 80 bytes of CODE  memory
+ 13 bytes of CONST memory
+  5 bytes of DATA  memory
+
+Errors: none
+Warnings: none

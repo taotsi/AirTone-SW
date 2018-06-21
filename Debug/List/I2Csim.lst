@@ -1,0 +1,383 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 15/Nov/2017  10:59:35
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  E:\AirTone\AirToneMLL\DRIVER\Serial\I2Csim.c
+#    Command line =  
+#        E:\AirTone\AirToneMLL\DRIVER\Serial\I2Csim.c -e -Oh --debug
+#        --code_model medium --data_model medium -o
+#        E:\AirTone\AirToneMLL\Debug\Obj\ --dlib_config "F:\IAR
+#        Systems\Embedded Workbench 7.0\stm8\LIB\dlstm8mmn.h" -lcN
+#        E:\AirTone\AirToneMLL\Debug\List\ -I E:\AirTone\AirToneMLL\BSP\ -I
+#        E:\AirTone\AirToneMLL\USER\ -I E:\AirTone\AirToneMLL\DRIVER\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Memory\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        E:\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  E:\AirTone\AirToneMLL\Debug\List\I2Csim.lst
+#    Object file  =  E:\AirTone\AirToneMLL\Debug\Obj\I2Csim.o
+#
+###############################################################################
+
+E:\AirTone\AirToneMLL\DRIVER\Serial\I2Csim.c
+      1          /*******************************************************************************
+      2           * Brief:    Using GPIO to simulate I2C , based on STM8L15x, uesed for AK4637EN
+      3           * Author:   Taotsi
+      4           * Update:   2017.04.03
+      5           *******************************************************************************/
+      6          
+      7          /* Includes -------------------------------------------------------------------*/
+      8          #include "I2Csim.h"
+      9          
+     10          
+     11          /* Variavles ------------------------------------------------------------------*/
+     12          /* extern Variables*************************************************************/
+     13          /* Used for test purpose. nAck record the times ACK is waited for.
+     14               nAckErr record the times ACK is not received.                 */
+     15          extern uint16_t nAckErr = 0;
+     16          extern uint16_t nAck = 0;
+     17          
+     18          //extern void Delay(uint16_t t);
+     19          
+     20          
+     21          
+     22          /* Functions ------------------------------------------------------------------*/
+     23          
+     24          /**
+     25            *  Brief:  Initialize SDA and SCL as GPIO.
+     26            */
+     27          void I2Csim_Init(void)
+     28          {
+     29              GPIO_Init(PORT_I2Csim, PIN_I2Csim_SCL, GPIO_Mode_Out_PP_High_Fast);
+     30          
+     31              GPIO_Init(PORT_I2Csim, PIN_I2Csim_SDA, GPIO_Mode_Out_PP_High_Fast);
+     32              //GPIO_Init(PORT_I2Csim, PIN_I2Csim_SDA, GPIO_Mode_In_PU_No_IT);
+     33          }
+     34          
+     35          /**
+     36            * Brief:  Send a START signal in Master mode.
+     37            *         Toggling SDA from high to low while SCL being high makes a START to the slave.
+     38            */
+     39          void I2Csim_START(void)
+     40          {
+     41              SDA_OUT();
+     42          
+     43              SDA_HIGH();
+     44              SCL_HIGH();
+     45              SDA_LOW();
+     46              SCL_LOW();
+     47          }
+     48          
+     49          /**
+     50            * Brief:  Send a STOP signal in Master mode.
+     51            *         Toggling SDA from low to high while SCL being high makes a STOP to the slave.
+     52            */
+     53          void I2Csim_STOP(void)
+     54          {
+     55              SDA_OUT();
+     56          
+     57              SCL_LOW();
+     58              SDA_LOW();
+     59              SCL_HIGH();
+     60              SDA_HIGH();
+     61          }
+     62          
+     63          /**
+     64            * Brief:  Send an ACK signal in Master mode.
+     65            *         Sending the 9th pulse on SCL after sending a byte
+     66            *           while SDA being LOW maks a ACK to the slave.
+     67            */
+     68          void I2Csim_ACK(void)
+     69          {
+     70              SDA_OUT();
+     71          
+     72              SDA_LOW();
+     73              SCL_LOW();
+     74              Delay(2);
+     75              SCL_HIGH();
+     76              Delay(2);
+     77              SCL_LOW();
+     78              Delay(2);
+     79          }
+     80          
+     81          /**
+     82            * Brief:  Send no ACK signal in Master mode.
+     83            *         Sending the 9th pulse on SCL after sending a byte
+     84            *           while SDA being HIGH means no ACK sent to the slave.
+     85            */
+     86          void I2Csim_NoACK(void)
+     87          {
+     88              SDA_OUT();
+     89          
+     90              SDA_HIGH();
+     91              SCL_LOW();
+     92              Delay(2);
+     93              SCL_HIGH();
+     94              Delay(2);
+     95              SCL_LOW();
+     96              Delay(2);
+     97          }
+     98          
+     99          /*
+    100           * Brief:   Make an ACK 9th pulse in Master mode, check and wait for ACK
+    101           *            from the slave during the pulse.
+    102           * RetVal:  ACK_NotRcvd: No ACK received
+    103           *          ACK_Rcvd:    ACK received
+    104           */
+    105          ACK_RcvStatus_T I2Csim_WaitForACK(void)
+    106          {
+    107              uint8_t ErrTime = 0;
+    108              SDA_IN();
+    109              //SDA_HIGH();
+    110              //Delay(2);
+    111              SCL_HIGH();
+    112              Delay(2);
+    113              while(SDA_READ())
+    114              {
+    115                  ErrTime++;
+    116                  if(ErrTime > 7)
+    117                  {
+    118                      // I2Csim_STOP();
+    119                      return ACK_NotRcvd;
+    120                  }
+    121              }
+    122              SCL_LOW();
+    123              //Delay(2);
+    124              return ACK_Rcvd;
+    125          }
+    126          
+    127          /**
+    128            * Brief:  Send a byte to slave in Master mode.
+    129            *         This does not include START or STOP generation.
+    130            * Param:  byte:   Byte you want to send.
+    131            * Param:  ACK_Cmd:   ACK_ENABLE:  Will wait for ACK from the slave
+    132            *                    ACK_DISABLE: Won't wait for ACK from the slave.
+    133            *                                   Still will send the 9th pulse though.
+    134            * RetVal: None
+    135            */
+    136          void I2Csim_Send_Byte(uint8_t byte, ACK_Cmd_T ACK_Cmd)
+    137          {
+    138          /* In case that ACK is not received, use goto to send again. */
+    139          //This code is not being used for now.
+    140          //SENDAGAIN:
+    141          
+    142              SDA_OUT();
+    143          
+    144              /* Send the byte, MSB. */
+    145              SCL_LOW();
+    146              for(int n=0; n<8; n++)
+    147              {
+    148                  SCL_LOW();
+    149                  // --
+    150                  //Delay(10);
+    151                  if( (byte&0x80)>>7 )
+    152                  {
+    153                      SDA_HIGH();
+    154                  }
+    155                  else
+    156                  {
+    157                      SDA_LOW();
+    158                  }
+    159                  byte <<= 1;
+    160                  // --
+    161                  //Delay(10);
+    162                  SCL_HIGH();
+    163                  Delay(2);
+    164                  SCL_LOW();
+    165                  // --
+    166                  //Delay(10);
+    167              }
+    168          
+    169              /* In case that WaitForACK does not work, use this for alternative. */
+    170              // This code is not being used for now.
+    171              /*
+    172              SCL_HIGH();
+    173              Delay(1);
+    174              SCL_LOW();
+    175              */
+    176          
+    177              /* Generate the 9th pulse, check and wait for ACK from the slave. */
+    178              if(ACK_Cmd == ACK_ENABLE)
+    179              {
+    180                  ACK_RcvStatus_T ack = I2Csim_WaitForACK();
+    181                  if(ack == ACK_NotRcvd)
+    182                  {
+    183                      //goto SENDAGAIN;  // this code is not being used for now.
+    184                      //oPrint("No ACK received!"); // Remind if ACK is not received.
+    185                      nAckErr++;  // used for test purpose. see above.
+    186                  }
+    187                  else if(ack == ACK_Rcvd)
+    188                  {
+    189                      //oPrint("ACK received!");
+    190                  }
+    191                  nAck++;  // used for test purpose. see above.
+    192              }
+    193          }
+    194          
+    195          
+    196          /*
+    197           * Param:  ACK_Cmd: ACK_ENABLE:   Will send an ACK to the slave.
+    198           *                  ACK_DISABLE:  Won't send an ACK to the slave.
+    199           * RetVal: The byte received
+    200           */
+    201          uint8_t I2Csim_Receive_Byte(ACK_Cmd_T ACK_Cmd)
+    202          {
+    203              uint8_t byte = 0;
+    204          
+    205              SDA_IN();
+    206          
+    207              /* Receive the byte, MSB. */
+    208              SCL_LOW();
+    209              for(int n=0; n<8; n++)
+    210              {
+    211                  SCL_LOW();
+    212                  Delay(2);
+    213                  SCL_HIGH();
+    214                  byte <<= 1;
+    215                  if(SDA_READ())
+    216                  {
+    217                      byte++;
+    218                  }
+    219                  Delay(2);
+    220              }
+    221          
+    222              /* Send or not send the ACK. Will send the 9th pulse either. */
+    223              if(ACK_Cmd == ACK_ENABLE)
+    224                  I2Csim_ACK();
+    225              else
+    226                  I2Csim_NoACK();
+    227          
+    228              return byte;
+    229          }
+    230          
+    231          
+    232          /**
+    233            * Brief:  Used for test purpose, to count how many times ACK is not received.
+    234            * Param:  n: How many times of ACK should the function test.
+    235            */
+    236          void ACK_test(uint8_t n)
+    237          {
+    238              oPrintf("nAckErr=%d", nAckErr);
+    239              oPrintf("nAck=%d", nAck);
+    240          
+    241              for(uint8_t i=0; i<n; i++)
+    242              {
+    243                  uint8_t reg = 0x0A;
+    244                  uint8_t regaddr = 0x05;
+    245                  uint8_t regwr = 3;
+    246                  //oPrintStrNum("1,reg=", reg);
+    247          
+    248                  //oPrintStrNum("Read addr ", regaddr);
+    249                  reg = AK4637_Read_Reg(regaddr);
+    250                  //oPrintStrNum("2,reg=", reg);
+    251          
+    252                  //oPrintStrNum("Write reg as ", regwr);
+    253                  AK4637_Write_Reg(regaddr, regwr);
+    254              //oPrint("Read it again");
+    255                  reg = AK4637_Read_Reg(regaddr);
+    256                  //oPrintStrNum("3,reg=", reg);
+    257          
+    258                  oPrintf("test %d ", i+1);
+    259              }
+    260          
+    261              oPrintf("nAck=%d", nAck);
+    262              oPrintf("nAckErr=%d", nAckErr);
+    263              nAckErr = 0;
+    264              nAck = 0;
+    265          }
+    266          
+    267          /**
+    268            * Brief:  The first two communications are doomed to fail. So this two must
+    269            *           happen before any real communications. Strange though, it's necessary.
+    270            */
+    271          void I2Csim_DummyPre(void)
+    272          {
+    273              AK4637_Read_Reg(0x00);
+    274          
+    275              nAckErr = 0;
+    276              nAck = 0;
+    277              //oPrint("I2C dummy read");
+    278          }
+    279          
+    280          /*
+    281          void I2Csim_Send_OneByte(uint8_t Addr, uint8_t Byte)
+    282          {
+    283              I2Csim_START();
+    284          
+    285              I2Csim_Send_Byte(Addr);
+    286              I2Csim_Send_Byte(Byte);
+    287          
+    288              I2Csim_STOP();
+    289          }
+    290          
+    291          void I2Csim_Send_TwoBytes(uint8_t Addr, uint8_t Byte_1, uint8_t Byte_2)
+    292          {
+    293              I2Csim_START();
+    294          
+    295              I2Csim_Send_Byte(Addr);
+    296              //I2Csim_WaitForACK();
+    297              I2Csim_Send_Byte(Byte_1);
+    298              //I2Csim_WaitForACK();
+    299              I2Csim_Send_Byte(Byte_2);
+    300              //I2Csim_WaitForACK();
+    301          
+    302              I2Csim_STOP();
+    303          }
+    304          
+    305          uint8_t I2Csim_Receive_OneByte(uint8_t Addr)
+    306          {
+    307              return 0;
+    308          }
+    309          */
+    310          
+    311          /* ----------------------------- End of file --------------------------------- */
+    312          /*******************************************************************************/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       7  ??Subroutine11_0
+       9  ??Subroutine12_0
+      10  ?Subroutine0
+      14  ?Subroutine1
+       9  ?Subroutine10
+      13  ?Subroutine2
+      10  ?Subroutine3
+      12  ?Subroutine4
+       5  ?Subroutine5
+       7  ?Subroutine6
+       9  ?Subroutine7
+       4  ?Subroutine8
+       2  ?Subroutine9
+      11  ?_0
+       8  ?_1
+       9  ?_2
+     130  ACK_test
+      48  I2Csim_ACK
+      13  I2Csim_DummyPre
+      26  I2Csim_Init
+      44  I2Csim_NoACK
+      93  I2Csim_Receive_Byte
+      16  I2Csim_START
+      29  I2Csim_STOP
+     104  I2Csim_Send_Byte
+      54  I2Csim_WaitForACK
+       2  nAck
+       2  nAckErr
+
+ 
+ 668 bytes in section .far_func.text
+   4 bytes in section .near.bss
+  28 bytes in section .near.rodata
+ 
+ 668 bytes of CODE  memory
+  28 bytes of CONST memory
+   4 bytes of DATA  memory
+
+Errors: none
+Warnings: 1

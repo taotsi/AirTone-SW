@@ -1,0 +1,523 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 15/Nov/2017  10:59:37
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  E:\AirTone\AirToneMLL\DRIVER\OLED\OLED_Interface.c
+#    Command line =  
+#        E:\AirTone\AirToneMLL\DRIVER\OLED\OLED_Interface.c -e -Oh --debug
+#        --code_model medium --data_model medium -o
+#        E:\AirTone\AirToneMLL\Debug\Obj\ --dlib_config "F:\IAR
+#        Systems\Embedded Workbench 7.0\stm8\LIB\dlstm8mmn.h" -lcN
+#        E:\AirTone\AirToneMLL\Debug\List\ -I E:\AirTone\AirToneMLL\BSP\ -I
+#        E:\AirTone\AirToneMLL\USER\ -I E:\AirTone\AirToneMLL\DRIVER\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Memory\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        E:\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  E:\AirTone\AirToneMLL\Debug\List\OLED_Interface.lst
+#    Object file  =  E:\AirTone\AirToneMLL\Debug\Obj\OLED_Interface.o
+#
+###############################################################################
+
+E:\AirTone\AirToneMLL\DRIVER\OLED\OLED_Interface.c
+      1          /*******************************************************************************
+      2           * Brief:   UI interface library, based on OLED library, run on STM8L15x
+      3           * Author:	taotsi
+      4           * Update:	2017.03.27
+      5           *******************************************************************************/
+      6          
+      7          /* Includes -------------------------------------------------------------------*/
+      8          #include "OLED_Interface.h"
+      9          
+     10          
+     11          /* Variavbles -----------------------------------------------------------------*/
+     12          /* Private Variables ***********************************************************/
+     13          extern int oPointer = 0;
+     14          extern int oPointer_slide = 0;
+     15          
+     16          static char oBuffer[oBuffSize][21];
+     17          
+     18          extern uint8_t oProgPointer = 0;
+     19          extern uint8_t oProgSW = oProgSW_UnStarted;
+     20          
+     21          
+     22          /* Functions ------------------------------------------------------------------*/
+     23          
+     24          /**
+     25            * Brief:  Initialize the oInterface program.
+     26            */
+     27          void oInterface_Init()
+     28          {
+     29              /* oBuffer initialization */
+     30              int i, j;
+     31              for(i=0; i<oBuffSize; i++)
+     32                  for(j=0; j<21; j++)
+     33                  {
+     34                      oBuffer[i][j] = ' ';
+     35                  }
+     36          
+     37              /* Set oPointer to zero, aka the start of the oBuffer. */
+     38              oPointer = 0;
+     39          
+     40              /* oProgBar Initialization */
+     41              oProgPointer = 0;
+     42          }
+     43          
+     44          
+     45          /**
+     46            *
+     47            */
+     48          void oProgBar_Start()
+     49          {
+     50              // well, there's no static_assert() in the IAR library, pity.
+     51              //static_assert(oProgSW == oProgSW_UnStarted, "You have to END the previous oProgBar by using oProgBar_End() before starting a new one!");
+     52              oProgSW = oProgSW_Running;
+     53          
+     54              uint8_t i = 0;
+     55          
+     56              oProgPointer = 0;
+     57          
+     58              OLED_Set_Pos(0, 0);
+     59              for(i = 0; i < 128; i++)
+     60                  OLED_WrDat(0x81);
+     61          }
+     62          
+     63          
+     64          /**
+     65            * param:  prog:  can be 0~128
+     66            */
+     67          void oProgBar_Dis(uint8_t prog)
+     68          {
+     69              // well, there's no static_assert() in the IAR library, pity.
+     70              //static_assert(oProgSW == oProgSW_Running, "You have to START oProgBar by using oProgBar_Start() first!");
+     71          
+     72              uint8_t i = 0;
+     73          
+     74              if(prog > 128)
+     75              {
+     76                  prog = 128;
+     77              }
+     78          
+     79              if(prog > oProgPointer)
+     80              {
+     81                  i = oProgPointer;
+     82                  OLED_Set_Pos(0, oProgPointer);
+     83                  while(i <= prog)
+     84                  {
+     85                      OLED_WrDat(0xBD);
+     86                      i++;
+     87                  }
+     88          
+     89                  oProgPointer = prog;
+     90              }
+     91              
+     92          }
+     93          
+     94          
+     95          /**
+     96            *
+     97            */
+     98          void oProgBar_End()
+     99          {
+    100              // well, there's no static_assert() in the IAR library, pity.
+    101              //static_assert(oProgSW == oProgSW_Running, "No oProgBar running, no need to END nothing!");
+    102          
+    103              oProgSW = oProgSW_UnStarted;
+    104          
+    105              if(oProgPointer < 128)
+    106              {
+    107                  OLED_Set_Pos(0, oPointer);
+    108                  while(oProgPointer <= 128)
+    109                  {
+    110                      OLED_WrDat(0xBD);
+    111                      oProgPointer++;
+    112                  }
+    113              }
+    114          
+    115              oProgPointer = 0;
+    116          }
+    117          
+    118          
+    119          /**
+    120            * Brief:  Display a String on the screen. The screen will roll automaticly.
+    121            * Param:  string[]: String you want to display.
+    122            *                     You can display 168 chars at most at a time, aka a whole
+    123            *                     screen of chars.
+    124            */
+    125          void oPrint(char* string)
+    126          {
+    127              uint8_t i = 0;
+    128          
+    129              if(oPointer >= oBuffSize)
+    130              {
+    131                  oPointer=0;
+    132              }
+    133          
+    134              /* Initialize a temporary buffer with spaces. */
+    135              char tempbuff[8][21];
+    136              /* This is necessary. Or else there'll be garbage values in the buffer. */
+    137              for(i = 0; i<168; i++)
+    138              {
+    139                  *(tempbuff[0]+i) = ' ';
+    140              }
+    141          
+    142          
+    143              for(i = 0; *(string+i) != '\0' && i<168; i++)
+    144              {
+    145                *(tempbuff[0]+i) = *(string+i);
+    146              }
+    147          
+    148              int npage = (i-1)/21+1;
+    149          
+    150              uint8_t j = 0;
+    151              for(i = 0; i<npage; i++)
+    152              {
+    153                  for(j=0; j<21; j++)
+    154                  {
+    155                      oBuffer[oPointer][j] = tempbuff[i][j];
+    156                  }
+    157                  oDisplay();
+    158                  oPointer++;
+    159              }
+    160          
+    161          }
+    162          
+    163          
+    164          /**
+    165            * Brief:  This works like the printf().
+    166            * Param:  str:    No need to explain.
+    167            *                 %d, %X, %c and %s can be used.
+    168            * Param:  ...:    No need to explain.
+    169            * 注意： 字符串缓冲区有溢出风险。因为要检测是否溢出需要额外付出计算量，所以忽略这一问题了。
+    170            *        因此字符串不应该过长。
+    171            * 注意： 转换符不要用错，不要对不准。没有检错机制，会导致内存错乱。
+    172            */
+    173          void oPrintf(char* str, ...)
+    174          {
+    175              uint8_t i = 0;
+    176          
+    177              if(oPointer >= oBuffSize)
+    178              {
+    179                  oPointer=0;
+    180              }
+    181          
+    182              /* Initialize a temporary buffer with spaces. */
+    183              char tempbuff[8][21];
+    184              /* This is necessary. Or else there'll be garbage values in the buffer. */
+    185              for(i = 0; i<168; i++)
+    186              {
+    187                  *(tempbuff[0]+i) = ' ';
+    188              }
+    189          
+    190              /* Pointer for variable argument list. */
+    191              va_list parg;
+    192          
+    193              /* Initialize argument pointer. */
+    194              va_start(parg, str);
+    195          
+    196              /* str pointer ahead */
+    197              uint8_t str_ahd = 0;
+    198              /* buff pointer ahead */
+    199              uint8_t buff_ahd = 0;
+    200          
+    201          
+    202              for(i = 0; *(str+i+str_ahd) != '\0' && (i+buff_ahd)<168; i++)
+    203              {
+    204                  /* Trying to capture a conversion character. */
+    205                  if(*(str+i+str_ahd) == '%')
+    206                  {
+    207                      /* "%d" captured, means a 16-bit unsigned int in decimal form. */
+    208                      if(*(str+i+str_ahd+1) == 'd')
+    209                      {
+    210                          /* To store the current number */
+    211                          uint16_t tempNum = 0;
+    212                          /* To store the current number-converted string */
+    213                          char tempNumStr[6];
+    214          
+    215                          /* str pointer jumps ahead. */
+    216                          str_ahd++;
+    217          
+    218                          /* Get the current argument which should be a uint16_t type. */
+    219                          tempNum = va_arg(parg, uint16_t);
+    220          
+    221                          /* Convert the current argument from a number to a string. */
+    222                          Num2Str(tempNum, tempNumStr);
+    223          
+    224                          /* Copy the current number-converted string into the temporary buffer. */
+    225                          int k = 0;
+    226                          for(k = 0; (k<6) && (tempNumStr[k] != '\0'); k++)
+    227                          {
+    228                              *(tempbuff[0]+i+buff_ahd + k) = tempNumStr[k];
+    229                          }
+    230          
+    231                          /* buff pointer jumps ahead. */
+    232                          buff_ahd += (k-1);
+    233          
+    234                      }
+    235          
+    236                      /* "%X" captured, means a 16-bit unsigned int in hex form.*/
+    237                      else if(*(str+i+str_ahd+1) == 'X')
+    238                      {
+    239                          /* To store the current number */
+    240                          uint16_t tempNum = 0;
+    241                          /* To store the current number-converted string */
+    242                          char tempNumStr[6];
+    243          
+    244                          /* str pointer jumps ahead. */
+    245                          str_ahd++;
+    246          
+    247                          /* Get the current argument which should be a uint16_t type. */
+    248                          tempNum = va_arg(parg, uint16_t);
+    249          
+    250                          /* Convert the current argument from a number to a string in Hex format. */
+    251                          NumX2Str(tempNum, tempNumStr);
+    252          
+    253                          /* Copy the current number-converted string into the temporary buffer. */
+    254                          int k = 0;
+    255                          /* There are 4 digits at most for a 16-bit number, additionally with
+    256                               an prefix of "0x", making it a 6-char string in total. */
+    257                          for(k = 0; (k<6) && (tempNumStr[k] != '\0'); k++)
+    258                          {
+    259                              *(tempbuff[0]+i+buff_ahd + k) = tempNumStr[k];
+    260                          }
+    261          
+    262                          /* buff pointer jumps ahead. */
+    263                          buff_ahd += (k-1);
+    264                      }
+    265          
+    266                      /* %c captured, means a 8-bit char. */
+    267                      else if(*(str+i+str_ahd+1) == 'c')
+    268                      {
+    269                          /* To store the current char. */
+    270                          char tempChar = 'a';
+    271          
+    272                          /* str pointer jumps ahead. */
+    273                          str_ahd++;
+    274          
+    275                          /* Get the current argument which should be a char type. */
+    276                          /* It'll be fine even if the types are not the same.
+    277                             But va_arg() does not accept uint8_t. */
+    278                          tempChar = va_arg(parg, uint16_t);
+    279          
+    280                          /* Copy the current char into the temporary buffer. */
+    281                          *(tempbuff[0]+i+buff_ahd) = tempChar;
+    282                          // the codes below does not work.
+    283                          //*(tempbuff[0]+i+buff_ahd) = (uint8_t)va_arg(parg, uint16_t);
+    284          
+    285                          /* buff pointer jumps ahead. */
+    286                          buff_ahd++;
+    287                      }
+    288          
+    289                      /* %s captured, means a string. */
+    290                      else if(*(str+i+str_ahd+1) == 's')
+    291                      {
+    292                          /* To store the current string pointer. */
+    293                          char* tempStr;
+    294          
+    295                          /* str pointer jumps ahead. */
+    296                          str_ahd++;
+    297          
+    298                          /* Get the current argument which should be a char string poinger. */
+    299                          tempStr = va_arg(parg, char*);
+    300          
+    301                          /* Copy the current string into the temporary buffer. */
+    302                          int k = 0;
+    303                          for(k = 0; k<42 && tempStr[k] != '\0'; k++)
+    304                          {
+    305                              *(tempbuff[0]+i+buff_ahd + k) = *(tempStr+k);
+    306                          }
+    307          
+    308                          /* buff pointer jumps ahead. */
+    309                          buff_ahd += (k-1);
+    310                      }
+    311          
+    312                      /* Just a '%' captured without a conversion character behind it. */
+    313                      else
+    314                      {
+    315                          *(tempbuff[0]+i+buff_ahd) = '%';
+    316                      }
+    317                  }
+    318                  /* No "%d" captured. */
+    319                  else
+    320                  {
+    321                      *(tempbuff[0]+i+buff_ahd) = *(str+i+str_ahd);
+    322                  }
+    323              }
+    324          
+    325              /* End variable argument process. */
+    326              va_end(parg);
+    327          
+    328          
+    329              /* Put all the stuff above on the screen.
+    330                 i+buff_ahd is the number of the chars in total*/
+    331              int npage = (i + buff_ahd - 1)/21+1;
+    332          
+    333              uint8_t j = 0;
+    334              for(i = 0; i<npage; i++)
+    335              {
+    336                  for(j=0; j<21; j++)
+    337                  {
+    338                      oBuffer[oPointer][j] = tempbuff[i][j];
+    339                  }
+    340                  oDisplay();
+    341                  oPointer++;
+    342              }
+    343          }
+    344          
+    345          
+    346          /**
+    347            * Brief:  Display a Number on the screen. The screen will roll automaticly.
+    348            * Param:  x: Number you want to display. It must be less than 65536.
+    349            */
+    350          void oPrintNum(uint16_t x)
+    351          {
+    352              char TempStr[6];
+    353              Num2Str(x, TempStr);
+    354          
+    355              oPrint(TempStr);
+    356          }
+    357          
+    358          
+    359          /**
+    360            * Brief:  Display the oBuffer according to the oPointer.
+    361            */
+    362          void oDisplay(void)
+    363          {
+    364              oDisplayPointer(oPointer);
+    365          
+    366              /* Every time the screen rolls because of new data input,
+    367                   oPointer_slide is reset equal to oPionter. */
+    368              oPointer_slide = oPointer;
+    369          }
+    370          
+    371          
+    372          /**
+    373            * Brief:  Display the oBuffer according to the oPointer_slide.
+    374            * Note:   The current oPointer is actually bigger by 1 than the
+    375            *           "real" pointer. That's because oPointer is incremented
+    376            *           by one everytime oPrint90 has run. And program below
+    377            *           uses the "real" pointer, which equals oPointer-1.
+    378            * Note:   This function can work with an up key and a down key.
+    379            *           Each time you press a key, the screen will scroll one row
+    380            *           of chars. If you want to scroll more than one row each time,
+    381            *           you have to set some logic switches to judge whether the up
+    382            *           key or the down key is pressed.
+    383            */
+    384          void oDisplay_slide(void)
+    385          {
+    386              /* If oPointer_slide has been incremented bigger than oPointer,
+    387                   it must be reset equal to oPointer.                        */
+    388              if(oPointer_slide == oPointer)
+    389                  oPointer_slide--;
+    390          
+    391              /* If oPointer_slide has been substracted to ("real"pointer+7-oBuffsize),
+    392                       is has reach the oldest record and mustn't be less any more. */
+    393              if(oPointer > (oBuffSize-8))
+    394              {
+    395                  /*
+    396                  if(oPointer_slide == -1)
+    397                    oPointer_slide = oBuffSize-1;
+    398                  */
+    399          
+    400                  if(oPointer_slide == oPointer+6-oBuffSize)
+    401                      oPointer_slide++;
+    402              }
+    403              else
+    404              {
+    405                  if(oPointer_slide == -1)
+    406                      oPointer_slide = oBuffSize-1;
+    407          
+    408                  if(oPointer_slide == oPointer+6)
+    409                      oPointer_slide++;
+    410          
+    411                  if(oPointer_slide == oBuffSize)
+    412                      oPointer_slide = 0;
+    413              }
+    414          
+    415          
+    416              oDisplayPointer(oPointer_slide);
+    417          
+    418          }
+    419          
+    420          
+    421          /**
+    422            * Brief:  Display the oBuffer according to the specified pointer.
+    423            * Param:  pointer:  Pointer of the oBuffer. Can be from 0 to oBuffSize.
+    424            */
+    425          void oDisplayPointer(int pointer)
+    426          {
+    427              int i=0;
+    428              if(pointer >= 8)
+    429              {
+    430                  for(i=0;i<8;i++)
+    431                  {
+    432                    OLED_Dis_Str(i,0,oBuffer[pointer-7+i]);
+    433                  }
+    434              }
+    435          
+    436              /* If pointer < Page, the function will display some of bottom strings
+    437                   in the oBuffer to make a circle. */
+    438              else if(pointer < 8)
+    439              {
+    440                  int n = 8-pointer;
+    441                  for(i=0;i<=n;i++)
+    442                  {
+    443                      OLED_Dis_Str(i,0,oBuffer[oBuffSize-n+i]);
+    444                  }
+    445                  for(i=0;i<=pointer;i++)
+    446                  {
+    447                      //OLED_Dis_Str(i+n,0,oBuffer[i]);
+    448                      OLED_Dis_Str(i+n-1,0,oBuffer[i]);
+    449                  }
+    450              }
+    451          }
+    452          
+    453          
+    454          /* ----------------------------- End of file --------------------------------- */
+    455          /*******************************************************************************/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+      17  ?Subroutine0
+       9  ?Subroutine1
+      14  ?Subroutine10
+      17  ?Subroutine2
+      20  ?Subroutine3
+      18  ?Subroutine4
+      14  ?Subroutine5
+      14  ?Subroutine6
+      10  ?Subroutine7
+      18  ?Subroutine8
+      12  ?Subroutine9
+    1344  oBuffer
+       5  oDisplay
+     136  oDisplayPointer
+      85  oDisplay_slide
+      33  oInterface_Init
+       2  oPointer
+       2  oPointer_slide
+     103  oPrint
+      19  oPrintNum
+     320  oPrintf
+      54  oProgBar_Dis
+      49  oProgBar_End
+      39  oProgBar_Start
+       1  oProgPointer
+       1  oProgSW
+
+ 
+ 1 006 bytes in section .far_func.text
+ 1 349 bytes in section .near.bss
+     1 byte  in section .near.data
+ 
+ 1 006 bytes of CODE memory
+ 1 350 bytes of DATA memory
+
+Errors: none
+Warnings: none

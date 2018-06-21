@@ -1,0 +1,296 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 16/May/2017  16:55:04
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\src\stm8l15x_beep.c
+#    Command line =  
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\src\stm8l15x_beep.c
+#        -e -Oh --debug --code_model medium --data_model medium -o
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\Obj\ --dlib_config
+#        "F:\Embedded Workbench 7.0\stm8\LIB\dlstm8mmn.h" -lcN
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\List\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\BSP\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\USER\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\Memory\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\List\stm8l15x_beep.lst
+#    Object file  =  
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\Obj\stm8l15x_beep.o
+#
+###############################################################################
+
+H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\src\stm8l15x_beep.c
+      1          /**
+      2            ******************************************************************************
+      3            * @file    stm8l15x_beep.c
+      4            * @author  MCD Application Team
+      5            * @version V1.6.1
+      6            * @date    30-September-2014
+      7            * @brief   This file provides firmware functions to manage the following 
+      8            *          functionalities of the BEEPER (BEEP) peripheral:           
+      9            *           - Initialization and Configuration
+     10            *           - Low Speed Internal Clock(LSI) Calibration
+     11            *
+     12            *  @verbatim  
+     13            *          ===================================================================
+     14            *                                 How to use this driver
+     15            *          ===================================================================  
+     16            *          1- Make sure that the LS RC clock calibration is performed by the following 
+     17            *            steps:
+     18            *               - Connect internally the LS clock source to TIM2 channel 1 input
+     19            *                 capture for measurement using BEEP_LSClockToTIMConnectCmd() function
+     20            *               - Update the BEEP_CSR register by the measured LSI frequency 
+     21            *                  --> During this phase the BEEPER must be disabled to avoid 
+     22            *                      unwanted interrupts  
+     23            *
+     24            *          2- Configure the output beeper frequency using the BEEP_Init() function
+     25            *
+     26            *          3- Enable the beeper using the BEEP_Cmd() function
+     27            *
+     28            *  @endverbatim   
+     29            ******************************************************************************
+     30            * @attention
+     31            *
+     32            * <h2><center>&copy; COPYRIGHT 2014 STMicroelectronics</center></h2>
+     33            *
+     34            * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
+     35            * You may not use this file except in compliance with the License.
+     36            * You may obtain a copy of the License at:
+     37            *
+     38            *        http://www.st.com/software_license_agreement_liberty_v2
+     39            *
+     40            * Unless required by applicable law or agreed to in writing, software 
+     41            * distributed under the License is distributed on an "AS IS" BASIS, 
+     42            * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     43            * See the License for the specific language governing permissions and
+     44            * limitations under the License.
+     45            *
+     46            ******************************************************************************
+     47            */
+     48          
+     49          /* Includes ------------------------------------------------------------------*/
+     50          #include "stm8l15x_beep.h"
+     51          
+     52          /** @addtogroup STM8L15x_StdPeriph_Driver
+     53            * @{
+     54            */
+     55          /** @defgroup BEEP 
+     56            * @brief BEEP driver modules
+     57            * @{
+     58            */ 
+     59          
+     60          /* Private typedef -----------------------------------------------------------*/
+     61          /* Private define ------------------------------------------------------------*/
+     62          /* Private macro -------------------------------------------------------------*/
+     63          /* Private variables ---------------------------------------------------------*/
+     64          /* Private function prototypes -----------------------------------------------*/
+     65          /* Private functions ---------------------------------------------------------*/
+     66          
+     67          /** @defgroup BEEP_Private_Functions
+     68            * @{
+     69            */
+     70          
+     71          /** @defgroup BEEP_Group1 Initialization and Configuration functions
+     72           *  @brief    Initialization and Configuration functions 
+     73           *
+     74          @verbatim    
+     75           ===============================================================================
+     76                                Initialization and Configuration functions
+     77           ===============================================================================  
+     78            This section provides functions allowing to:
+     79             - Initialize and configure the Beeper frequency
+     80             - Enable and Disable the Beeper output
+     81             
+     82          @endverbatim
+     83            * @{
+     84            */
+     85            
+     86          /**
+     87            * @brief  Deinitializes the BEEP peripheral registers to their default
+     88            *         reset values.
+     89            * @param  None
+     90            * @retval None
+     91            */
+     92          void BEEP_DeInit(void)
+     93          {
+     94            BEEP->CSR1 = BEEP_CSR1_RESET_VALUE;
+     95            BEEP->CSR2 = BEEP_CSR2_RESET_VALUE;
+     96          }
+     97          
+     98          /**
+     99            * @brief  Initializes the BEEP function according to the specified parameters.
+    100            * @note   The LS RC calibration must be performed before calling this function.
+    101            * @param  BEEP_Frequency Frequency selection.
+    102            *         This parameter can be one of the values of @ref BEEP_Frequency_T.
+    103            * @retval None
+    104            */
+    105          void BEEP_Init(BEEP_Frequency_T BEEP_Frequency)
+    106          {
+    107          
+    108            /* Check parameter */
+    109            assert_param(IS_BEEP_FREQUENCY(BEEP_Frequency));
+    110          
+    111            /* Set a default calibration value if no calibration is done */
+    112            if ((BEEP->CSR2 & BEEP_CSR2_BEEPDIV) == BEEP_CSR2_BEEPDIV)
+    113            {
+    114              BEEP->CSR2 &= (uint8_t)(~BEEP_CSR2_BEEPDIV); /* Clear bits */
+    115              BEEP->CSR2 |= BEEP_CALIBRATION_DEFAULT;
+    116            }
+    117          
+    118            /* Select the output frequency */
+    119            BEEP->CSR2 &= (uint8_t)(~BEEP_CSR2_BEEPSEL);
+    120            BEEP->CSR2 |= (uint8_t)(BEEP_Frequency);
+    121          
+    122          }
+    123          
+    124          /**
+    125            * @brief  Enable or disable the BEEP function.
+    126            * @note   Initialisation of BEEP and LS RC calibration must be done before.
+    127            * @param  NewState Indicates the new state of the BEEP function.
+    128            * @retval None
+    129            */
+    130          void BEEP_Cmd(FunctionalState NewState)
+    131          {
+    132            /* Check the parameters */
+    133            assert_param(IS_FUNCTIONAL_STATE(NewState));
+    134          
+    135            if (NewState != DISABLE)
+    136            {
+    137              /* Enable the BEEP peripheral */
+    138              BEEP->CSR2 |= BEEP_CSR2_BEEPEN;
+    139            }
+    140            else
+    141            {
+    142              /* Disable the BEEP peripheral */
+    143              BEEP->CSR2 &= (uint8_t)(~BEEP_CSR2_BEEPEN);
+    144            }
+    145          }
+    146          
+    147          /**
+    148            * @}
+    149            */
+    150          
+    151          /** @defgroup BEEP_Group2 Low Speed Internal Clock(LSI) Calibration functions
+    152           *  @brief    Low Speed Internal Clock(LSI) Calibration functions 
+    153           *
+    154          @verbatim   
+    155           ===============================================================================
+    156                        Low Speed Internal Clock(LSI) Calibration functions
+    157           ===============================================================================  
+    158          
+    159            This section provides functions allowing to measure and calibrate the internal 
+    160            low speed clock source to ensure better BEEPER output frequency .
+    161            
+    162            A typical configuration for LSI calibration is done following these steps :
+    163             1. Disable the Beeper to avoid any unwanted interrupt using BEEP_Cmd() function 
+    164             2. Measure the LSI clock frequency by connecting it internally to TIM2 input capture  
+    165                using BEEP_LSClockToTIMConnectCmd() function.
+    166             3. Calibrate the beeper frequency with the measured LSI clock frequency using 
+    167                BEEP_LSICalibrationConfig() function.
+    168             
+    169          @endverbatim
+    170            * @{
+    171            */
+    172            
+    173          /**
+    174            * @brief  Enable or disable the LS clock source connection to TIM for measurement.
+    175            * @param  NewState Indicates the new state of the LS clock to TIM connection
+    176            * @retval None
+    177            */
+    178          void BEEP_LSClockToTIMConnectCmd(FunctionalState NewState)
+    179          {
+    180            /* Check the parameters */
+    181            assert_param(IS_FUNCTIONAL_STATE(NewState));
+    182          
+    183            if (NewState != DISABLE)
+    184            {
+    185              /* Connect LS clock to TIM for measurement */
+    186              BEEP->CSR1 |= BEEP_CSR1_MSR;
+    187            }
+    188            else
+    189            {
+    190              /* Disconnect LS clock to TIM */
+    191              BEEP->CSR1 &= (uint8_t)(~BEEP_CSR1_MSR);
+    192            }
+    193          }
+    194          /**
+    195            * @brief  Update CSR register with the measured LSI frequency.
+    196            * @note   BEEP must be disabled to avoid unwanted interrupts.
+    197            * @note   Prescaler calculation:
+    198            *         A is the integer part of LSIFreqkHz/4 and x the decimal part.
+    199            *         x <= A/(1+2A) is equivalent to A >= x(1+2A)
+    200            *         and also to 4A >= 4x(1+2A) [F1]
+    201            *         but we know that A + x = LSIFreqkHz/4 ==> 4x = LSIFreqkHz-4A
+    202            *         so [F1] can be written :
+    203            *         4A >= (LSIFreqkHz-4A)(1+2A)
+    204            * @param  LSIFreqHz Low Speed RC frequency measured by timer (in Hz).
+    205            * @retval None
+    206            */
+    207          void BEEP_LSICalibrationConfig(uint32_t LSIFreqHz)
+    208          {
+    209            uint16_t lsifreqkhz;
+    210            uint16_t A;
+    211          
+    212            /* Check parameter */
+    213            assert_param(IS_LSI_FREQUENCY(LSIFreqHz));
+    214          
+    215            lsifreqkhz = (uint16_t)(LSIFreqHz / 1000); /* Converts value in kHz */
+    216          
+    217            /* Calculation of BEEPER calibration value */
+    218          
+    219            BEEP->CSR2 &= (uint8_t)(~BEEP_CSR2_BEEPDIV); /* Clear bits */
+    220          
+    221            A = (uint16_t)(lsifreqkhz >> 3U); /* Division by 8, keep integer part only */
+    222          
+    223            if ((8U * A) >= ((lsifreqkhz - (8U * A)) * (1U + (2U * A))))
+    224            {
+    225              BEEP->CSR2 |= (uint8_t)(A - 2U);
+    226            }
+    227            else
+    228            {
+    229              BEEP->CSR2 |= (uint8_t)(A - 1U);
+    230            }
+    231          }
+    232          /**
+    233            * @}
+    234            */
+    235          
+    236          /**
+    237            * @}
+    238            */
+    239          /**
+    240            * @}
+    241            */
+    242          
+    243          /**
+    244            * @}
+    245            */
+    246          
+    247          /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+      13  BEEP_Cmd
+       9  BEEP_DeInit
+      40  BEEP_Init
+      13  BEEP_LSClockToTIMConnectCmd
+      67  BEEP_LSICalibrationConfig
+
+ 
+ 142 bytes in section .far_func.text
+ 
+ 142 bytes of CODE memory
+
+Errors: none
+Warnings: none

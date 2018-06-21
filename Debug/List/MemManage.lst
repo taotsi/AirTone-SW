@@ -1,0 +1,213 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 15/Nov/2017  10:59:36
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  E:\AirTone\AirToneMLL\DRIVER\Memory\MemManage.c
+#    Command line =  
+#        E:\AirTone\AirToneMLL\DRIVER\Memory\MemManage.c -e -Oh --debug
+#        --code_model medium --data_model medium -o
+#        E:\AirTone\AirToneMLL\Debug\Obj\ --dlib_config "F:\IAR
+#        Systems\Embedded Workbench 7.0\stm8\LIB\dlstm8mmn.h" -lcN
+#        E:\AirTone\AirToneMLL\Debug\List\ -I E:\AirTone\AirToneMLL\BSP\ -I
+#        E:\AirTone\AirToneMLL\USER\ -I E:\AirTone\AirToneMLL\DRIVER\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Memory\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        E:\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  E:\AirTone\AirToneMLL\Debug\List\MemManage.lst
+#    Object file  =  E:\AirTone\AirToneMLL\Debug\Obj\MemManage.o
+#
+###############################################################################
+
+E:\AirTone\AirToneMLL\DRIVER\Memory\MemManage.c
+      1          /*******************************************************************************
+      2           * Brief:   Memory Management Library.
+      3           * Author:  taotsi
+      4           * Update:  2017.04.30
+      5           *******************************************************************************/
+      6          #include "MemManage.h"
+      7          
+      8          /* Functions ------------------------------------------------------------------*/
+      9          
+     10          /**
+     11            *
+     12            */
+     13          void MemMng_Config(void)
+     14          {
+     15              
+     16              /* Get CC8530 Master HEX from PC if there's no one already there. */
+     17              if(M25P_Read_Byte(FIndx_CCIMG_Master_Origin_SW) != FSW_CCIMG_Master_Origin_Written)
+     18              {
+     19                  oPrint(">Waiting for transferring the Original HEX of CC8530 Master Image...");
+     20                  MemMng_DataTrans_PC_M25P(FIndx_CCIMG_Master_Origin, DtSz_CCIMG_Origin);
+     21                  M25P_Write_Byte(FSW_CCIMG_Master_Origin_Written, FIndx_CCIMG_Master_Origin_SW);
+     22              }
+     23              
+     24              /* If the HEX of the CC8530 Master Image has not been processed */
+     25              if(M25P_Read_Byte(FIndx_CCIMG_Master_Processed_SW) != FSW_CCIMG_Master_Processed_Written)
+     26              {
+     27                  oPrint(">Processing the Original HEX of CC8530 Master Image...");
+     28                  MemMng_DataProc_Char_HEX(FIndx_CCIMG_Master_Origin, FIndx_CCIMG_Master_Processed, 2048);
+     29                  M25P_Write_Byte(FSW_CCIMG_Master_Processed_Written, FIndx_CCIMG_Master_Processed_SW);
+     30              }
+     31              
+     32              /* Get CC8530 Slave HEX from PC if there's no one already there. */
+     33              if(M25P_Read_Byte(FIndx_CCIMG_Slave_Origin_SW) != FSW_CCIMG_Slave_Origin_Written)
+     34              {
+     35                  oPrint(">>Waiting for transferring the Original HEX of CC8530 Slave Image");
+     36                  MemMng_DataTrans_PC_M25P(FIndx_CCIMG_Slave_Origin, DtSz_CCIMG_Origin);
+     37                  M25P_Write_Byte(FSW_CCIMG_Slave_Origin_Written, FIndx_CCIMG_Slave_Origin_SW);
+     38              }
+     39              
+     40              /* If the HEX of the CC8530 Slave Image has not been processed */
+     41              if(M25P_Read_Byte(FIndx_CCIMG_Slave_Processed_SW) != FSW_CCIMG_Slave_Processed_Written)
+     42              {
+     43                  oPrint(">>Processing the Original HEX of CC8530 Slave Image...");
+     44                  MemMng_DataProc_Char_HEX(FIndx_CCIMG_Slave_Origin, FIndx_CCIMG_Slave_Processed, 2048);
+     45                  M25P_Write_Byte(FSW_CCIMG_Slave_Processed_Written, FIndx_CCIMG_Slave_Processed_SW);
+     46              }
+     47              
+     48          }
+     49          
+     50          /**
+     51            * Brief:  Transfer data from PC through UART to the Flash
+     52            * Param:  addr:   Destination address in M25P128.
+     53            * param:  nBytes: Number of bytes to transfer.
+     54            * Note:   Baudrate can be 57600 at most.
+     55            */
+     56          void MemMng_DataTrans_PC_M25P(uint32_t addr, uint32_t nBytes)
+     57          {
+     58              M25P_Erase_Sector(addr);
+     59              
+     60              //oPrint(">Waiting for Data transfering to start, from PC to Flash...");
+     61          
+     62              disableInterrupts();
+     63          
+     64              uint32_t i = 0;
+     65          
+     66              oProgBar_Start();
+     67              for(i = 0; i < nBytes; i++)
+     68              {
+     69                  M25P_Write_Byte(UART_Receive_Byte(), addr++);
+     70                  //oPrintf("%X",&tempByte);
+     71                  oProgBar_Dis((i*128)/nBytes);
+     72              }
+     73              oProgBar_End();
+     74          
+     75              enableInterrupts();
+     76              
+     77              //oPrint(">Data transferrd!");
+     78          }
+     79          
+     80          
+     81          /**
+     82            * 
+     83            * Param:  addr_src:  Starting address of the source image data for CC8530.
+     84            * Note:   There are 32768 bytes in total to transfer.
+     85            */
+     86          void MemMng_DataTrans_M25P_CC8530_IMG(uint32_t addr_src)
+     87          {
+     88              CC8530_BL_FLASH_MASS_ERASE();
+     89              oPrint(">CC8530 Flash Erased!");
+     90              
+     91              uint16_t i;
+     92              uint8_t j;
+     93              uint8_t buff[16];
+     94              
+     95              oPrint(">CC8530 Image Programming int the Flash...");
+     96              oProgBar_Start();
+     97              for(j = 0; j < 31; j++)
+     98              {
+     99                  for(i = 0; i < 64; i++)
+    100                  {
+    101                      M25P_Read_Buffer(buff, FIndx_CCIMG_Master_Processed + 1024*j + 16*i, 16);
+    102                      
+    103                      CC8530_Write_String(0x6000 + 16*i, buff, 16);
+    104                  }
+    105                  CC8530_BL_FLASH_PAGE_PROG(0x6000, 0x8000 + 1024*j);
+    106                  while(CC8530_GET_STATUS() == 0x000A);
+    107                  
+    108                  oProgBar_Dis((j+1)*128/31);
+    109              }
+    110              oProgBar_End();
+    111          }
+    112          
+    113          
+    114          /**
+    115            *
+    116            *
+    117            */
+    118          void MemMng_DataProc_Char_HEX(uint32_t addr_origin, uint32_t addr_new, uint16_t nRows)
+    119          {
+    120              uint32_t j = 0;
+    121              uint8_t i = 0;
+    122              
+    123              uint8_t num = 0;
+    124              uint8_t num_H = 0;
+    125              uint8_t num_L = 0;
+    126              char char_H, char_L;
+    127              
+    128              M25P_Erase_Sector(addr_new);
+    129              
+    130              oPrint(">Data Processing...");
+    131              
+    132              oProgBar_Start();
+    133              for(j = 0; j < nRows; j++)
+    134              {
+    135                  for(i = 0; i < 16; i++)
+    136                  {
+    137                      char_H = M25P_Read_Byte(addr_origin + j*43 + 9 + 2*i);
+    138                      char_L = M25P_Read_Byte(addr_origin + j*43 + 9 + 2*i+1);
+    139                      num_H = Char2Num(char_H);
+    140                      num_L = Char2Num(char_L);
+    141                      num = (num_H << 4) + num_L;
+    142                      
+    143                      M25P_Write_Byte(num, addr_new + j*16 + i);
+    144                      //oPrintf("%X", M25P_Read_Byte(addr_new + j*16 + i))
+    145                  }
+    146                  oProgBar_Dis((j+1)*128/nRows);
+    147              }
+    148              oProgBar_End();
+    149              
+    150              oPrint(">Data processed!");
+    151          }
+    152          
+    153          /* ----------------------------- End of file --------------------------------- */
+    154          /*******************************************************************************/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+      17  ?Subroutine0
+      12  ?Subroutine1
+       9  ?Subroutine2
+       7  ?Subroutine3
+      10  ?Subroutine4
+      11  ?Subroutine5
+      69  ?_0
+      55  ?_1
+      66  ?_2
+      55  ?_3
+      22  ?_4
+      43  ?_5
+      20  ?_6
+      17  ?_7
+     185  MemMng_Config
+     266  MemMng_DataProc_Char_HEX
+     206  MemMng_DataTrans_M25P_CC8530_IMG
+     108  MemMng_DataTrans_PC_M25P
+
+ 
+ 831 bytes in section .far_func.text
+ 347 bytes in section .near.rodata
+ 
+ 831 bytes of CODE  memory
+ 347 bytes of CONST memory
+
+Errors: none
+Warnings: none

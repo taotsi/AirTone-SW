@@ -1,0 +1,411 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 16/May/2017  16:55:16
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\src\stm8l15x_pwr.c
+#    Command line =  
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\src\stm8l15x_pwr.c
+#        -e -Oh --debug --code_model medium --data_model medium -o
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\Obj\ --dlib_config
+#        "F:\Embedded Workbench 7.0\stm8\LIB\dlstm8mmn.h" -lcN
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\List\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\BSP\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\USER\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\Memory\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\List\stm8l15x_pwr.lst
+#    Object file  =  H:\ProjectFile\AirTone\AirToneMLL\Debug\Obj\stm8l15x_pwr.o
+#
+###############################################################################
+
+H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\src\stm8l15x_pwr.c
+      1          /**
+      2            ******************************************************************************
+      3            * @file    stm8l15x_pwr.c
+      4            * @author  MCD Application Team
+      5            * @version V1.6.1
+      6            * @date    30-September-2014
+      7            * @brief   This file provides firmware functions to manage the following 
+      8            *          functionalities of the Power Controller (PWR) peripheral:           
+      9            *           - PVD configuration
+     10            *           - Ultra Low Power mode configuration
+     11            *           - Interrupts and flags management
+     12            *               
+     13            ******************************************************************************
+     14            * @attention
+     15            *
+     16            * <h2><center>&copy; COPYRIGHT 2014 STMicroelectronics</center></h2>
+     17            *
+     18            * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
+     19            * You may not use this file except in compliance with the License.
+     20            * You may obtain a copy of the License at:
+     21            *
+     22            *        http://www.st.com/software_license_agreement_liberty_v2
+     23            *
+     24            * Unless required by applicable law or agreed to in writing, software 
+     25            * distributed under the License is distributed on an "AS IS" BASIS, 
+     26            * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     27            * See the License for the specific language governing permissions and
+     28            * limitations under the License.
+     29            *
+     30            ******************************************************************************
+     31            */
+     32          
+     33          /* Includes ------------------------------------------------------------------*/
+     34          #include "stm8l15x_pwr.h"
+     35          
+     36          /** @addtogroup STM8L15x_StdPeriph_Driver
+     37            * @{
+     38            */
+     39          
+     40          /** @defgroup PWR 
+     41            * @brief PWR driver modules
+     42            * @{
+     43            */
+     44            
+     45          /* Private typedef -----------------------------------------------------------*/
+     46          /* Private define ------------------------------------------------------------*/
+     47          /* Private macro -------------------------------------------------------------*/
+     48          /* Private variables ---------------------------------------------------------*/
+     49          /* Private function prototypes -----------------------------------------------*/
+     50          /* Private functions ---------------------------------------------------------*/
+     51          
+     52          /** @defgroup PWR_Private_Functions
+     53            * @{
+     54            */
+     55          
+     56          /** @defgroup PWR_Group1 PVD configuration functions
+     57           *  @brief   PVD configuration functions 
+     58           *
+     59          @verbatim   
+     60           ===============================================================================
+     61                                     PVD configuration functions
+     62           ===============================================================================  
+     63          
+     64           - The PVD is used to monitor the VDD power supply by comparing it to a threshold
+     65             selected by the PVD Level (PLS[2:0] bits in the PWR_CSR1).
+     66           - The PVD can use an external input analog voltage (PVD_IN) which is compared 
+     67             internally to VREFINT. The PVD_IN (PE6) has to be configured in Analog mode 
+     68             when PWR_PVDLevel_PVDIn is selected (PLS[2:0] = 111).
+     69           - A PVDO flag is available to indicate if VDD/VDDA is higher or lower than the 
+     70             PVD threshold. An interrupt is generated in case enabled for PVD. 
+     71           - The PVD interrup event has the capability to wake up the CPU from Halt/Active Halt modes.
+     72          
+     73          @endverbatim
+     74            * @{
+     75            */
+     76              
+     77          /**
+     78            * @brief  Deinitializes the PWR peripheral registers to their default reset values.
+     79            * @param  None
+     80            * @retval None
+     81            */
+     82          void PWR_DeInit(void)
+     83          {
+     84            PWR->CSR1 = PWR_CSR1_PVDIF;
+     85            PWR->CSR2 = PWR_CSR2_RESET_VALUE;
+     86          }
+     87          
+     88          /**
+     89            * @brief  Configures the voltage threshold detected by the Power Voltage Detector(PVD).
+     90            * @param  PWR_PVDLevel: specifies the PVD detection level
+     91            *          This parameter can be one of the following values:
+     92            *            @arg PWR_PVDLevel_1V85: PVD detection level set to 1.85V
+     93            *            @arg PWR_PVDLevel_2V05: PVD detection level set to 2.05V
+     94            *            @arg PWR_PVDLevel_2V26: PVD detection level set to 2.26V
+     95            *            @arg PWR_PVDLevel_2V45: PVD detection level set to 2.45V
+     96            *            @arg PWR_PVDLevel_2V65: PVD detection level set to 2.65V
+     97            *            @arg PWR_PVDLevel_2V85: PVD detection level set to 2.85V
+     98            *            @arg PWR_PVDLevel_3V05: PVD detection level set to 3.05V
+     99            *            @arg PWR_PVDLevel_PVDIn: External input analog voltage (Compare internally to VREFINT)
+    100            * @retval None
+    101            */
+    102          void PWR_PVDLevelConfig(PWR_PVDLevel_T PWR_PVDLevel)
+    103          {
+    104            /* Check the parameters */
+    105            assert_param(IS_PWR_PVD_LEVEL(PWR_PVDLevel));
+    106          
+    107            /* Clear the PVD level */
+    108            PWR->CSR1 &= (uint8_t)(~PWR_CSR1_PLS);
+    109          
+    110            /* Configure the PVD level */
+    111            PWR->CSR1 |= PWR_PVDLevel;
+    112          
+    113          }
+    114          
+    115          /**
+    116            * @brief  Enables or disables the Power Voltage Detector(PVD).
+    117            * @param  NewState: new state of the PVD.
+    118            *          This parameter can be: ENABLE or DISABLE.
+    119            * @retval None
+    120            */
+    121          void PWR_PVDCmd(FunctionalState NewState)
+    122          {
+    123            /* Check the parameters */
+    124            assert_param(IS_FUNCTIONAL_STATE(NewState));
+    125          
+    126            if (NewState != DISABLE)
+    127            {
+    128              /* Enable the PWR PVD */
+    129              PWR->CSR1 |= PWR_CSR1_PVDE;
+    130            }
+    131            else
+    132            {
+    133              /* Disable the PWR PVD */
+    134              PWR->CSR1 &= (uint8_t)(~PWR_CSR1_PVDE);
+    135            }
+    136          }
+    137          
+    138          /**
+    139            * @}
+    140            */
+    141          
+    142          /** @defgroup PWR_Group2 Ultra Low Power mode configuration functions
+    143           *  @brief   Ultra Low Power mode configuration functions 
+    144           *
+    145          @verbatim   
+    146           ===============================================================================
+    147                              Ultra Low Power mode configuration functions
+    148           ===============================================================================  
+    149          
+    150           - The internal voltage reference consumption is not negligible, in particular 
+    151             in Halt and Active Halt modes. To reduce power consumption, use the PWR_UltraLowPowerCmd()
+    152             function (ULP bit (Ultra low power) in the PWR_CSR2 register) to disable the 
+    153             internal voltage reference. However, in this case, when exiting from the 
+    154             Halt/Active Halt modes, the functions managed through the internal voltage reference 
+    155             are not reliable during the internal voltage reference startup time (up to 3 ms).
+    156             To reduce the wakeup time, the device can exit from Halt/Active Halt modes without 
+    157             waiting for the internal voltage reference startup time. This is performed 
+    158             by using the PWR_FastWakeUpCmd() function (setting the FWU bit (Fast
+    159             wakeup) in the PWR_CSR2 register) before entering Halt/Active Halt mode.
+    160          
+    161          @endverbatim
+    162            * @{
+    163            */
+    164            
+    165          /**
+    166            * @brief  Enables or disables the Fast WakeUp from Ultra Low Power mode.
+    167            * @param  NewState: new state of the Fast WakeUp  functionality.
+    168            *          This parameter can be: ENABLE or DISABLE.
+    169            * @retval None
+    170            */
+    171          void PWR_FastWakeUpCmd(FunctionalState NewState)
+    172          {
+    173            /* Check the parameters */
+    174            assert_param(IS_FUNCTIONAL_STATE(NewState));
+    175          
+    176            if (NewState != DISABLE)
+    177            {
+    178              /* Enable the PWR FWU */
+    179              PWR->CSR2 |= PWR_CSR2_FWU;
+    180            }
+    181            else
+    182            {
+    183              /* Disable the PWR FWU */
+    184              PWR->CSR2 &= (uint8_t)(~PWR_CSR2_FWU);
+    185            }
+    186          }
+    187          
+    188          /**
+    189            * @brief  Enables or disables the Ultra Low Power mode.
+    190            * @param  NewState: new state of the Ultra Low Power mode.
+    191            *          This parameter can be: ENABLE or DISABLE.
+    192            * @retval None
+    193            */
+    194          void PWR_UltraLowPowerCmd(FunctionalState NewState)
+    195          {
+    196            /* Check the parameters */
+    197            assert_param(IS_FUNCTIONAL_STATE(NewState));
+    198          
+    199            if (NewState != DISABLE)
+    200            {
+    201              /* Enable the PWR ULP */
+    202              PWR->CSR2 |= PWR_CSR2_ULP;
+    203            }
+    204            else
+    205            {
+    206              /* Disable the PWR ULP */
+    207              PWR->CSR2 &= (uint8_t)(~PWR_CSR2_ULP);
+    208            }
+    209          }
+    210          
+    211          /**
+    212            * @}
+    213            */
+    214          
+    215          /** @defgroup PWR_Group3 Interrupts and Flags management functions
+    216           *  @brief   Interrupts and Flags management functions 
+    217           *
+    218          @verbatim   
+    219           ===============================================================================
+    220                           Interrupts and Flags management functions
+    221           ===============================================================================  
+    222          
+    223          @endverbatim
+    224            * @{
+    225            */
+    226          
+    227          /**
+    228            * @brief  Configures the Programmable Voltage Detector (PVD) Interrupt .
+    229            * @param  NewState : Indicates the new state of the PVD interrupt.
+    230            * @retval None
+    231            */
+    232          void PWR_PVDITConfig(FunctionalState NewState)
+    233          {
+    234            /* Check the parameters */
+    235            assert_param(IS_FUNCTIONAL_STATE(NewState));
+    236          
+    237            if (NewState != DISABLE)
+    238            {
+    239              /* Enable the PVD interrupt */
+    240              PWR->CSR1 |= PWR_CSR1_PVDIEN;
+    241            }
+    242            else
+    243            {
+    244              /* Disable the PVD interrupt */
+    245              PWR->CSR1 &= (uint8_t)(~PWR_CSR1_PVDIEN);
+    246            }
+    247          }
+    248          
+    249          /**
+    250            * @brief  Checks whether the specified PWR flag is set or not.
+    251            * @param  PWR_FLAG: specifies the flag to check.
+    252            *          This parameter can be one of the following values:
+    253            *            @arg PWR_FLAG_PVDOF: PVD Output. This flag is valid only if PVD is enabled 
+    254            *                                 by the PWR_PVDCmd() function.
+    255            *            @arg PWR_FLAG_VREFINTF: Internal Voltage Reference Ready flag. This 
+    256            *                                    flag indicates the state of the internal voltage reference, VREFINT.
+    257            *            @arg PWR_FLAG_PVDIF: PVD Interrupt Flag, it's set by hardware when a PVD
+    258            *       event occurs  
+    259            * @retval The new state of PWR_FLAG (SET or RESET).
+    260            */
+    261          FlagStatus PWR_GetFlagStatus(PWR_FLAG_T PWR_FLAG)
+    262          {
+    263            FlagStatus bitstatus = RESET;
+    264          
+    265            /* Check the parameters */
+    266            assert_param(IS_PWR_FLAG(PWR_FLAG));
+    267          
+    268            if ((PWR_FLAG & PWR_FLAG_VREFINTF) != 0)
+    269            {
+    270              if ((PWR->CSR2 & PWR_CR2_VREFINTF) != (uint8_t)RESET )
+    271              {
+    272                bitstatus = SET;
+    273              }
+    274              else
+    275              {
+    276                bitstatus = RESET;
+    277              }
+    278            }
+    279            else
+    280            {
+    281              if ((PWR->CSR1 & PWR_FLAG) != (uint8_t)RESET )
+    282              {
+    283                bitstatus = SET;
+    284              }
+    285              else
+    286              {
+    287                bitstatus = RESET;
+    288              }
+    289            }
+    290          
+    291            /* Return the flag status */
+    292            return((FlagStatus)bitstatus);
+    293          }
+    294          
+    295          /**
+    296            * @brief  Clears the PWR PVDIF Flag.
+    297            * @param  None
+    298            * @retval None
+    299            */
+    300          void PWR_PVDClearFlag(void)
+    301          {
+    302            /* Set the PVDIF to clear it */
+    303            PWR->CSR1 |= PWR_CSR1_PVDIF;
+    304          }
+    305          
+    306          /**
+    307            * @brief  Checks whether the PVD interrupt has occurred or not.
+    308            * @param  None
+    309            * @retval The new state of the PVD Interrupt (SET or RESET).
+    310            */
+    311          ITStatus PWR_PVDGetITStatus(void)
+    312          {
+    313            ITStatus bitstatus = RESET;
+    314          
+    315            uint8_t PVD_itStatus = 0x0, PVD_itEnable = 0x0;
+    316          
+    317            PVD_itStatus = (uint8_t)(PWR->CSR1 & (uint8_t)PWR_CSR1_PVDIF);
+    318            PVD_itEnable = (uint8_t)(PWR->CSR1 & (uint8_t)PWR_CSR1_PVDIEN);
+    319          
+    320            if ((PVD_itStatus != (uint8_t)RESET ) && (PVD_itEnable != (uint8_t)RESET))
+    321            {
+    322              bitstatus = (ITStatus)SET;
+    323            }
+    324            else
+    325            {
+    326              bitstatus = (ITStatus)RESET;
+    327            }
+    328            return ((ITStatus)bitstatus);
+    329          }
+    330          
+    331          /**
+    332            * @brief  Clears the PWR interrupt pending bit.
+    333            * @param  None
+    334            * @retval None
+    335            */
+    336          void PWR_PVDClearITPendingBit(void)
+    337          {
+    338            /* Set the PVDIF to clear it */
+    339            PWR->CSR1 |= PWR_CSR1_PVDIF;
+    340          }
+    341          
+    342          /**
+    343            * @}
+    344            */
+    345          
+    346          /**
+    347            * @}
+    348            */
+    349            
+    350          /**
+    351            * @}
+    352            */
+    353          
+    354          /**
+    355            * @}
+    356            */
+    357          
+    358          /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       9  PWR_DeInit
+      13  PWR_FastWakeUpCmd
+      31  PWR_GetFlagStatus
+       5  PWR_PVDClearFlag
+       5  PWR_PVDClearITPendingBit
+      13  PWR_PVDCmd
+      28  PWR_PVDGetITStatus
+      13  PWR_PVDITConfig
+      19  PWR_PVDLevelConfig
+      13  PWR_UltraLowPowerCmd
+
+ 
+ 149 bytes in section .far_func.text
+ 
+ 149 bytes of CODE memory
+
+Errors: none
+Warnings: none

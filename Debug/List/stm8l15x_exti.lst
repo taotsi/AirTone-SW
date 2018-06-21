@@ -1,0 +1,613 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 16/May/2017  16:55:08
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\src\stm8l15x_exti.c
+#    Command line =  
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\src\stm8l15x_exti.c
+#        -e -Oh --debug --code_model medium --data_model medium -o
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\Obj\ --dlib_config
+#        "F:\Embedded Workbench 7.0\stm8\LIB\dlstm8mmn.h" -lcN
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\List\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\BSP\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\USER\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\Memory\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        H:\ProjectFile\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\List\stm8l15x_exti.lst
+#    Object file  =  
+#        H:\ProjectFile\AirTone\AirToneMLL\Debug\Obj\stm8l15x_exti.o
+#
+###############################################################################
+
+H:\ProjectFile\AirTone\AirToneMLL\DRIVER\STM8L152C6\src\stm8l15x_exti.c
+      1          /**
+      2            ******************************************************************************
+      3            * @file    stm8l15x_exti.c
+      4            * @author  MCD Application Team
+      5            * @version V1.6.1
+      6            * @date    30-September-2014
+      7            * @brief   This file provides firmware functions to manage the following 
+      8            *          functionalities of the EXTI peripheral:
+      9            *            - Interrupt sensitivity of GPIO ports/pins configuration
+     10            *            - Interrupt status management
+     11            *  @verbatim
+     12            *  
+     13            *          ===================================================================
+     14            *                                 How to use this driver
+     15            *          ===================================================================
+     16            *          This driver provides functions to configure and initialize the EXTI 
+     17            *          peripheral
+     18            *          These functions are split in 2 groups: 
+     19            *   
+     20            *          1. EXTI configuration: this group includes all needed functions 
+     21            *             to configure the EXTI GPIO ports and pins:
+     22            *                   - Set GPIO pins sensitivity
+     23            *                   - Select GPIO port, GPIO half port and set the GPIO port sensitivity
+     24            *                         
+     25            *          2. EXTI interrupt status management
+     26            *                   - Get the interrupt status: set/reset
+     27            *                   - Clear interrupt pending bits
+     28            *
+     29            *  @endverbatim
+     30            *   
+     31            ******************************************************************************
+     32            * @attention
+     33            *
+     34            * <h2><center>&copy; COPYRIGHT 2014 STMicroelectronics</center></h2>
+     35            *
+     36            * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
+     37            * You may not use this file except in compliance with the License.
+     38            * You may obtain a copy of the License at:
+     39            *
+     40            *        http://www.st.com/software_license_agreement_liberty_v2
+     41            *
+     42            * Unless required by applicable law or agreed to in writing, software 
+     43            * distributed under the License is distributed on an "AS IS" BASIS, 
+     44            * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     45            * See the License for the specific language governing permissions and
+     46            * limitations under the License.
+     47            *
+     48            ******************************************************************************
+     49            */
+     50          
+     51          /* Includes ------------------------------------------------------------------*/
+     52          #include "stm8l15x_exti.h"
+     53          
+     54          /** @addtogroup STM8L15x_StdPeriph_Driver
+     55            * @{
+     56            */
+     57          
+     58          /** @defgroup EXTI 
+     59            * @brief EXTI driver modules
+     60            * @{
+     61            */ 
+     62            
+     63          /* Private typedef -----------------------------------------------------------*/
+     64          /* Private define ------------------------------------------------------------*/
+     65          /* Private macro -------------------------------------------------------------*/
+     66          /* Private variables ---------------------------------------------------------*/
+     67          /* Private function prototypes -----------------------------------------------*/
+     68          /* Private functions ---------------------------------------------------------*/
+     69          
+     70          /** @defgroup EXTI_Private_Functions
+     71            * @{
+     72            */
+     73          
+     74          /** @defgroup EXTI_Group1 Interrupt sensitivity of GPIO ports/pins configuration
+     75           *  @brief   Interrupt sensitivity of GPIO ports/pins configuration
+     76           *
+     77          @verbatim   
+     78           ===============================================================================
+     79                                   EXTI configuration functions
+     80           ===============================================================================  
+     81            
+     82                 ===================================================================      
+     83                                  EXTI Driver: how to configure EXTI
+     84                 =================================================================== 
+     85                 To use a GPIO pin as an interrupt source, follow theses steps:
+     86                 
+     87                   1. Configure the GPIO pin in input mode with interrupt enabled using
+     88                      GPIO_Init()
+     89                    
+     90                   2. Configure the GPIO pin sensitivity (falling, rising...) using 
+     91                      EXTI_SetPinSensitivity()
+     92                    
+     93                   3. Enable global interrupts using enableInterrupts()
+     94                 
+     95                   4. In the IRQ handler corresponding to the GPIO pin, clear the interrupt
+     96                      pending bit using EXTI_ClearITPendingBit()
+     97          
+     98                 To use a GPIO port as an interrupt source, follows theses steps:  
+     99                      
+    100                   1. Configure the GPIO pins of the same port in input mode with interrupt
+    101                      enabled using GPIO_Init()
+    102                    
+    103                   2. Configure the GPIO port sensitivity (falling, rising...) using 
+    104                      EXTI_SetPortSensitivity()
+    105                    
+    106                   3. Select the GPIO port and the corresponding half port using  
+    107                      EXTI_SelectPort() then EXTI_SetHalfPortSelection()
+    108                  
+    109                   4. Enable global interrupts using enableInterrupts()
+    110                 
+    111                   5. In the IRQ handler corresponding to the GPIO port, clear the interrupt
+    112                      pending bit using EXTI_ClearITPendingBit()
+    113          
+    114          @endverbatim
+    115            * @{
+    116            */
+    117          
+    118          /**
+    119            * @brief  Deinitializes the EXTI registers to their default reset value.
+    120            * @param  None
+    121            * @retval None
+    122            */
+    123          void EXTI_DeInit(void)
+    124          {
+    125            EXTI->CR1 = EXTI_CR1_RESET_VALUE;
+    126            EXTI->CR2 = EXTI_CR2_RESET_VALUE;
+    127            EXTI->CR3 = EXTI_CR3_RESET_VALUE;
+    128            EXTI->CR4 = EXTI_CR4_RESET_VALUE;
+    129            EXTI->SR1 = 0xFF; /* Setting SR1 bits in order to clear flags */
+    130            EXTI->SR2 = 0xFF; /* Setting SR2 bits in order to clear flags */
+    131            EXTI->CONF1 = EXTI_CONF1_RESET_VALUE;
+    132            EXTI->CONF2 = EXTI_CONF2_RESET_VALUE;
+    133          }
+    134          
+    135          /**
+    136            * @brief  Sets the external interrupt sensitivity of the selected pin.
+    137            * @note   Global interrupts must be disabled before calling this function.
+    138            * @note   The modification of external interrupt sensitivity is only possible
+    139            *         when he interrupts are disabled.
+    140            * @note   The normal behavior is to disable the interrupts before calling this
+    141            *         function, and re-enable them after.
+    142            * @param  EXTI_Pin : The pin to configure.
+    143            *          This parameter can be one of the following values:
+    144            *            @arg EXTI_Pin_0: GPIO Pin 0
+    145            *            @arg EXTI_Pin_1: GPIO Pin 1
+    146            *            @arg EXTI_Pin_2: GPIO Pin 2
+    147            *            @arg EXTI_Pin_3: GPIO Pin 3
+    148            *            @arg EXTI_Pin_4: GPIO Pin 4
+    149            *            @arg EXTI_Pin_5: GPIO Pin 5
+    150            *            @arg EXTI_Pin_6: GPIO Pin 6
+    151            *            @arg EXTI_Pin_7: GPIO Pin 7              
+    152            * @param  EXTI_Trigger : The external interrupt sensitivity value to set.
+    153            *          This parameter can be one of the following values:
+    154            *            @arg EXTI_Trigger_Falling_Low: Interrupt on Falling edge and Low level
+    155            *            @arg EXTI_Trigger_Rising: Interrupt on Rising edge only  
+    156            *            @arg EXTI_Trigger_Falling: Interrupt on Falling edge only 
+    157            *            @arg EXTI_Trigger_Rising_Falling: Interrupt on Rising and Falling edges       
+    158            * @retval None
+    159            */
+    160          void EXTI_SetPinSensitivity(EXTI_Pin_T EXTI_Pin, EXTI_Trigger_T EXTI_Trigger)
+    161          {
+    162          
+    163            /* Check function parameters */
+    164            assert_param(IS_EXTI_PINNUM(EXTI_Pin));
+    165            assert_param(IS_EXTI_TRIGGER(EXTI_Trigger));
+    166          
+    167            /* Clear port sensitivity bits */
+    168            switch (EXTI_Pin)
+    169            {
+    170              case EXTI_Pin_0:
+    171                EXTI->CR1 &=  (uint8_t)(~EXTI_CR1_P0IS);
+    172                EXTI->CR1 |= (uint8_t)((uint8_t)(EXTI_Trigger) << EXTI_Pin);
+    173                break;
+    174              case EXTI_Pin_1:
+    175                EXTI->CR1 &=  (uint8_t)(~EXTI_CR1_P1IS);
+    176                EXTI->CR1 |= (uint8_t)((uint8_t)(EXTI_Trigger) << EXTI_Pin);
+    177                break;
+    178              case EXTI_Pin_2:
+    179                EXTI->CR1 &=  (uint8_t)(~EXTI_CR1_P2IS);
+    180                EXTI->CR1 |= (uint8_t)((uint8_t)(EXTI_Trigger) << EXTI_Pin);
+    181                break;
+    182              case EXTI_Pin_3:
+    183                EXTI->CR1 &=  (uint8_t)(~EXTI_CR1_P3IS);
+    184                EXTI->CR1 |= (uint8_t)((uint8_t)(EXTI_Trigger) << EXTI_Pin);
+    185                break;
+    186              case EXTI_Pin_4:
+    187                EXTI->CR2 &=  (uint8_t)(~EXTI_CR2_P4IS);
+    188                EXTI->CR2 |= (uint8_t)((uint8_t)(EXTI_Trigger) << ((uint8_t)EXTI_Pin & (uint8_t)0xEF));
+    189                break;
+    190              case EXTI_Pin_5:
+    191                EXTI->CR2 &=  (uint8_t)(~EXTI_CR2_P5IS);
+    192                EXTI->CR2 |= (uint8_t)((uint8_t)(EXTI_Trigger) << ((uint8_t)EXTI_Pin & (uint8_t)0xEF));
+    193                break;
+    194              case EXTI_Pin_6:
+    195                EXTI->CR2 &=  (uint8_t)(~EXTI_CR2_P6IS);
+    196                EXTI->CR2 |= (uint8_t)((uint8_t)(EXTI_Trigger) << ((uint8_t)EXTI_Pin & (uint8_t)0xEF));
+    197                break;
+    198              case EXTI_Pin_7:
+    199                EXTI->CR2 &=  (uint8_t)(~EXTI_CR2_P7IS);
+    200                EXTI->CR2 |= (uint8_t)((uint8_t)(EXTI_Trigger) << ((uint8_t)EXTI_Pin & (uint8_t)0xEF));
+    201                break;
+    202              default:
+    203                break;
+    204            }
+    205          }
+    206          
+    207          /**
+    208            * @brief  Selects the port interrupt selection.
+    209            * @param  EXTI_Port : The port number to access.
+    210            *          This parameter can be one of the following values:
+    211            *            @arg EXTI_Port_B: GPIO Port B
+    212            *            @arg EXTI_Port_D: GPIO Port D
+    213            *            @arg EXTI_Port_E: GPIO Port E
+    214            *            @arg EXTI_Port_F: GPIO Port F
+    215            *            @arg EXTI_Port_G: GPIO Port G
+    216            *            @arg EXTI_Port_H: GPIO Port H   
+    217            * @retval None
+    218            */
+    219          void EXTI_SelectPort(EXTI_Port_T EXTI_Port)
+    220          {
+    221            /* Check function parameter */
+    222            assert_param(IS_EXTI_PORT(EXTI_Port));
+    223          
+    224            if (EXTI_Port == EXTI_Port_B)
+    225            {
+    226              /* Select Port B by resetting PGBS bit in CONF2 register */
+    227              EXTI->CONF2 &= (uint8_t) (~EXTI_CONF2_PGBS);
+    228            }
+    229            else if (EXTI_Port == EXTI_Port_D)
+    230            {
+    231              /* Select Port D by resetting PHDS bit in CONF2 register */
+    232              EXTI->CONF2 &= (uint8_t) (~EXTI_CONF2_PHDS);
+    233            }
+    234            else if (EXTI_Port == EXTI_Port_E)
+    235            {
+    236              /* Select Port E by resetting PFES bit in CONF1 register */
+    237              EXTI->CONF1 &= (uint8_t) (~EXTI_CONF1_PFES);
+    238            }
+    239            else if (EXTI_Port == EXTI_Port_F)
+    240            {
+    241              /* Select Port F by setting PFES bit in CONF1 register */
+    242              EXTI->CONF1 |= (uint8_t) (EXTI_CONF1_PFES);
+    243            }
+    244            else if (EXTI_Port == EXTI_Port_G)
+    245            {
+    246              /* Select Port G by setting PGBS bit in CONF2 register */
+    247              EXTI->CONF2 |= (uint8_t) (EXTI_CONF2_PGBS);
+    248            }
+    249            else /* EXTI_Port is EXTI_Port_H */
+    250            {
+    251              /* Select Port H by setting PHDS bit in CONF2 register */
+    252              EXTI->CONF2 |= (uint8_t) (EXTI_CONF2_PHDS);
+    253            }
+    254          }
+    255          
+    256          /**
+    257            * @brief  Configures the half port interrupt selection.
+    258            * @note   This function should be called once the port sensitivity configured,
+    259            *         otherwise it will not have any effect on the port external interrupt.
+    260            * @note   This function should be called after EXTI_SelectPort() function which
+    261            *         selects the port to be used otherwise ports are selected by default
+    262            * @param  EXTI_HalfPort : The port part to access (MSB or LSB).
+    263            *          This parameter can be one of the following values:
+    264            *            @arg EXTI_HalfPort_B_LSB: Interrupt selector PB(3:0)
+    265            *            @arg EXTI_HalfPort_B_MSB: Interrupt selector PB(7:4)
+    266            *            @arg EXTI_HalfPort_D_LSB: Interrupt selector PD(3:0)
+    267            *            @arg EXTI_HalfPort_D_MSB: Interrupt selector PD(7:4)
+    268            *            @arg EXTI_HalfPort_E_LSB: Interrupt selector PE(3:0)
+    269            *            @arg EXTI_HalfPort_E_MSB: Interrupt selector PE(7:4)
+    270            *            @arg EXTI_HalfPort_F_LSB: Interrupt selector PF(3:0)
+    271            *            @arg EXTI_HalfPort_F_MSB: Interrupt selector PF(7:4)
+    272            *            @arg EXTI_HalfPort_G_LSB: Interrupt selector PG(3:0)
+    273            *            @arg EXTI_HalfPort_G_MSB: Interrupt selector PG(7:4)
+    274            *            @arg EXTI_HalfPort_H_LSB: Interrupt selector PH(3:0)
+    275            *            @arg EXTI_HalfPort_H_MSB: Interrupt selector PH(7:4)                      
+    276            * @param  NewState : The external interrupt new state.
+    277              *         This parameter can be: ENABLE or DISABLE.
+    278            * @retval None
+    279            */
+    280          void EXTI_SetHalfPortSelection(EXTI_HalfPort_T EXTI_HalfPort,
+    281                                         FunctionalState NewState)
+    282          {
+    283            /* Check function parameters */
+    284            assert_param(IS_EXTI_HALFPORT(EXTI_HalfPort));
+    285            assert_param(IS_FUNCTIONAL_STATE(NewState));
+    286          
+    287            if ((EXTI_HalfPort & 0x80) == 0x00)
+    288            {
+    289              if (NewState != DISABLE)
+    290              {
+    291                /* Enable port interrupt selector */
+    292                EXTI->CONF1 |= (uint8_t)EXTI_HalfPort;
+    293              }
+    294              else /*NewState == DISABLE */
+    295              {
+    296                /* Disable port interrupt selector */
+    297                EXTI->CONF1 &= (uint8_t)(~(uint8_t)EXTI_HalfPort);
+    298              }
+    299            }
+    300            else
+    301            {
+    302              if (NewState != DISABLE)
+    303              {
+    304                /* Enable port interrupt selector */
+    305                EXTI->CONF2 |= (uint8_t)(EXTI_HalfPort & (uint8_t)0x7F);
+    306              }
+    307              else /*NewState == DISABLE */
+    308              {
+    309                /* Disable port interrupt selector */
+    310                EXTI->CONF2 &= (uint8_t)(~(uint8_t) (EXTI_HalfPort & (uint8_t)0x7F));
+    311              }
+    312            }
+    313          }
+    314          
+    315          /**
+    316            * @brief  Sets the external interrupt sensitivity of the selected port.
+    317            * @note   Global interrupts must be disabled before calling this function.
+    318            * @note   The modification of external interrupt sensitivity is only possible
+    319            *         when the interrupts are disabled.
+    320            * @note   The normal behavior is to disable the interrupts before calling this
+    321            *         function, and re-enable them after.
+    322            * @param  EXTI_Port : The port number to access.
+    323            *          This parameter can be one of the following values:
+    324            *            @arg EXTI_Port_B: GPIO Port B
+    325            *            @arg EXTI_Port_D: GPIO Port D
+    326            *            @arg EXTI_Port_E: GPIO Port E
+    327            *            @arg EXTI_Port_F: GPIO Port F
+    328            *            @arg EXTI_Port_G: GPIO Port G
+    329            *            @arg EXTI_Port_H: GPIO Port H  
+    330            * @param  EXTI_Trigger : The external interrupt sensitivity value to set.
+    331            *          This parameter can be one of the following values:
+    332            *            @arg EXTI_Trigger_Falling_Low: Interrupt on Falling edge and Low level
+    333            *            @arg EXTI_Trigger_Rising: Interrupt on Rising edge only  
+    334            *            @arg EXTI_Trigger_Falling: Interrupt on Falling edge only 
+    335            *            @arg EXTI_Trigger_Rising_Falling: Interrupt on Rising and Falling edges 
+    336            * @retval None
+    337            */
+    338          void EXTI_SetPortSensitivity(EXTI_Port_T EXTI_Port,
+    339                                       EXTI_Trigger_T EXTI_Trigger)
+    340          {
+    341            /* Check function parameters */
+    342            assert_param(IS_EXTI_PORT(EXTI_Port));
+    343            assert_param(IS_EXTI_TRIGGER(EXTI_Trigger));
+    344          
+    345            /* Ceck if selected port is in EXTI_CR3 register */
+    346            if ((EXTI_Port & 0xF0) == 0x00)
+    347            {
+    348              /* Reset the trigger bits corresponding to EXTI_Port */
+    349              EXTI->CR3 &= (uint8_t) (~(uint8_t)((uint8_t)0x03 << EXTI_Port));
+    350              /* Write EXTI port trigger */
+    351              EXTI->CR3 |= (uint8_t)((uint8_t)(EXTI_Trigger) << EXTI_Port);
+    352            }
+    353            else /* selected port is in EXTI_CR4 register */
+    354            {
+    355              /* Reset the trigger bits corresponding to EXTI_Port */
+    356              EXTI->CR4 &= (uint8_t) (~(uint8_t)((uint8_t)0x03 << (EXTI_Port & 0x0F)));
+    357              /* Write EXTI port trigger */
+    358              EXTI->CR4 |= (uint8_t)(EXTI_Trigger << (EXTI_Port & 0x0F));
+    359            }
+    360          }
+    361          
+    362          /**
+    363            * @brief  Gets the external interrupt sensitivity of the selected pin.
+    364            * @param  EXTI_Pin : The pin number to access.
+    365            *          This parameter can be one of the following values:
+    366            *            @arg EXTI_Pin_0: GPIO Pin 0
+    367            *            @arg EXTI_Pin_1: GPIO Pin 1
+    368            *            @arg EXTI_Pin_2: GPIO Pin 2
+    369            *            @arg EXTI_Pin_3: GPIO Pin 3
+    370            *            @arg EXTI_Pin_4: GPIO Pin 4
+    371            *            @arg EXTI_Pin_5: GPIO Pin 5
+    372            *            @arg EXTI_Pin_6: GPIO Pin 6
+    373            *            @arg EXTI_Pin_7: GPIO Pin 7 
+    374            * @retval The external interrupt sensitivity of the selected port.
+    375            */
+    376          EXTI_Trigger_T EXTI_GetPinSensitivity(EXTI_Pin_T EXTI_Pin)
+    377          {
+    378            uint8_t value = 0;
+    379          
+    380            /* Check function parameters */
+    381            assert_param(IS_EXTI_PINNUM(EXTI_Pin));
+    382          
+    383            switch (EXTI_Pin)
+    384            {
+    385              case EXTI_Pin_0:
+    386                value = (uint8_t)(EXTI->CR1 & EXTI_CR1_P0IS);
+    387                break;
+    388              case EXTI_Pin_1:
+    389                value = (uint8_t)((uint8_t)(EXTI->CR1 & EXTI_CR1_P1IS) >> EXTI_Pin_1);
+    390                break;
+    391              case EXTI_Pin_2:
+    392                value = (uint8_t)((uint8_t)(EXTI->CR1 & EXTI_CR1_P2IS) >> EXTI_Pin_2);
+    393                break;
+    394              case EXTI_Pin_3:
+    395                value = (uint8_t)((uint8_t)(EXTI->CR1 & EXTI_CR1_P3IS) >> EXTI_Pin_3);
+    396                break;
+    397              case EXTI_Pin_4:
+    398                value = (uint8_t)(EXTI->CR2 & EXTI_CR2_P4IS);
+    399                break;
+    400              case EXTI_Pin_5:
+    401                value = (uint8_t)((uint8_t)(EXTI->CR2 & EXTI_CR2_P5IS) >> ((uint8_t)EXTI_Pin_5 & (uint8_t)0x0F));
+    402                break;
+    403              case EXTI_Pin_6:
+    404                value = (uint8_t)((uint8_t)(EXTI->CR2 & EXTI_CR2_P6IS) >> ((uint8_t)EXTI_Pin_6 & (uint8_t)0x0F));
+    405                break;
+    406              case EXTI_Pin_7:
+    407                value = (uint8_t)((uint8_t)(EXTI->CR2 & EXTI_CR2_P7IS) >> ((uint8_t)EXTI_Pin_7 & (uint8_t)0x0F));
+    408                break;
+    409              default:
+    410                break;
+    411            }
+    412            return((EXTI_Trigger_T)value);
+    413          }
+    414          
+    415          /**
+    416            * @brief  Gets the external interrupt sensitivity of the selected port.
+    417            * @param  EXTI_Port : The port number to access.
+    418            *          This parameter can be one of the following values:
+    419            *            @arg EXTI_Port_B: GPIO Port B
+    420            *            @arg EXTI_Port_D: GPIO Port D
+    421            *            @arg EXTI_Port_E: GPIO Port E
+    422            *            @arg EXTI_Port_F: GPIO Port F
+    423            *            @arg EXTI_Port_G: GPIO Port G
+    424            *            @arg EXTI_Port_H: GPIO Port H  
+    425            * @retval The external interrupt sensitivity of the selected port.
+    426            */
+    427          EXTI_Trigger_T EXTI_GetPortSensitivity(EXTI_Port_T EXTI_Port)
+    428          {
+    429            uint8_t portsensitivity = 0;
+    430          
+    431            /* Check function parameters */
+    432            assert_param(IS_EXTI_PORT(EXTI_Port));
+    433          
+    434            /* Check if selected port is in EXTI_CR3 */
+    435            if ((EXTI_Port & 0xF0) == 0x00)
+    436            {
+    437              /* Get port sensitivity */
+    438              portsensitivity = (uint8_t)((uint8_t)0x03 & (uint8_t)(EXTI->CR3 >> EXTI_Port));
+    439            }
+    440            /* selected port is in EXTI_CR4 */
+    441            else
+    442            {
+    443              /* Get port sensitivity */
+    444              portsensitivity = (uint8_t)((uint8_t)0x03 & (uint8_t)(EXTI->CR4 >> (EXTI_Port & 0x0F)));
+    445            }
+    446          
+    447            return((EXTI_Trigger_T)portsensitivity);
+    448          }
+    449          
+    450          /**
+    451            * @}
+    452            */
+    453          
+    454          /** @defgroup EXTI_Group2 EXTI Interrupt status management functions
+    455           *  @brief    EXTI Interrupt status management functions
+    456           *
+    457          @verbatim   
+    458           ===============================================================================
+    459                             EXTI Interrupt status management functions
+    460           ===============================================================================  
+    461          
+    462          @endverbatim
+    463            * @{
+    464            */
+    465          
+    466          /**
+    467            * @brief  Gets the external interrupt status.
+    468            * @param  EXTI_IT : Specifies the interrupt to read.
+    469            *          This parameter can be one of the following values:
+    470            *            @arg EXTI_IT_Pin0: GPIO Pin 0
+    471            *            @arg EXTI_IT_Pin1: GPIO Pin 1
+    472            *            @arg EXTI_IT_Pin2: GPIO Pin 2
+    473            *            @arg EXTI_IT_Pin3: GPIO Pin 3
+    474            *            @arg EXTI_IT_Pin4: GPIO Pin 4
+    475            *            @arg EXTI_IT_Pin5: GPIO Pin 5
+    476            *            @arg EXTI_IT_Pin6: GPIO Pin 6
+    477            *            @arg EXTI_IT_Pin7: GPIO Pin 7 
+    478            *            @arg EXTI_IT_PortB: GPIO Port B
+    479            *            @arg EXTI_IT_PortD: GPIO Port D
+    480            *            @arg EXTI_IT_PortE: GPIO Port E
+    481            *            @arg EXTI_IT_PortF: GPIO Port F
+    482            *            @arg EXTI_IT_PortG: GPIO Port G
+    483            *            @arg EXTI_IT_PortH: GPIO Port H           
+    484            * @retval The status of the specified interrupt.
+    485            *         This parameter can be a SET or RESET
+    486            */
+    487          ITStatus EXTI_GetITStatus(EXTI_IT_T EXTI_IT)
+    488          {
+    489            ITStatus status = RESET;
+    490            /* Check function parameters */
+    491            assert_param(IS_EXTI_ITPENDINGBIT(EXTI_IT));
+    492          
+    493            if (((uint16_t)EXTI_IT & (uint16_t)0xFF00) == 0x0100)
+    494            {
+    495              status = (ITStatus)(EXTI->SR2 & (uint8_t)((uint16_t)EXTI_IT & (uint16_t)0x00FF));
+    496            }
+    497            else
+    498            {
+    499              status = (ITStatus)(EXTI->SR1 & ((uint8_t)((uint16_t)EXTI_IT & (uint16_t)0x00FF)));
+    500            }
+    501            return((ITStatus)status);
+    502          }
+    503          
+    504          /**
+    505            * @brief  Clears the specified interrupt pending bit
+    506            * @param  EXTI_IT : Specifies the interrupt to clear
+    507            *          This parameter can be one of the following values:
+    508            *            @arg EXTI_IT_Pin0: GPIO Pin 0
+    509            *            @arg EXTI_IT_Pin1: GPIO Pin 1
+    510            *            @arg EXTI_IT_Pin2: GPIO Pin 2
+    511            *            @arg EXTI_IT_Pin3: GPIO Pin 3
+    512            *            @arg EXTI_IT_Pin4: GPIO Pin 4
+    513            *            @arg EXTI_IT_Pin5: GPIO Pin 5
+    514            *            @arg EXTI_IT_Pin6: GPIO Pin 6
+    515            *            @arg EXTI_IT_Pin7: GPIO Pin 7 
+    516            *            @arg EXTI_IT_PortB: GPIO Port B
+    517            *            @arg EXTI_IT_PortD: GPIO Port D
+    518            *            @arg EXTI_IT_PortE: GPIO Port E
+    519            *            @arg EXTI_IT_PortF: GPIO Port F
+    520            *            @arg EXTI_IT_PortG: GPIO Port G
+    521            *            @arg EXTI_IT_PortH: GPIO Port H  
+    522            * @retval None
+    523            */
+    524          void EXTI_ClearITPendingBit(EXTI_IT_T EXTI_IT)
+    525          {
+    526            uint16_t tempvalue = 0;
+    527          
+    528            /* Check function parameters */
+    529            assert_param(IS_EXTI_ITPENDINGBIT(EXTI_IT));
+    530          
+    531            tempvalue = ((uint16_t)EXTI_IT & (uint16_t)0xFF00);
+    532          
+    533            if ( tempvalue == 0x0100)
+    534            {
+    535              EXTI->SR2 = (uint8_t)((uint16_t)EXTI_IT & (uint16_t)0x00FF);
+    536            }
+    537            else
+    538            {
+    539              EXTI->SR1 = (uint8_t) (EXTI_IT);
+    540            }
+    541          }
+    542          
+    543          /**
+    544            * @}
+    545            */ 
+    546          
+    547          /**
+    548            * @}
+    549            */ 
+    550            
+    551          /**
+    552            * @}
+    553            */
+    554          
+    555          /**
+    556            * @}
+    557            */
+    558          
+    559          /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+      12  ?Subroutine0
+      14  EXTI_ClearITPendingBit
+      33  EXTI_DeInit
+      14  EXTI_GetITStatus
+      89  EXTI_GetPinSensitivity
+      32  EXTI_GetPortSensitivity
+      49  EXTI_SelectPort
+      49  EXTI_SetHalfPortSelection
+     156  EXTI_SetPinSensitivity
+      80  EXTI_SetPortSensitivity
+
+ 
+ 528 bytes in section .far_func.text
+ 
+ 528 bytes of CODE memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,919 @@
+###############################################################################
+#
+# IAR C/C++ Compiler V2.10.4.157 for STM8                 15/Nov/2017  10:59:35
+# Copyright 2010-2015 IAR Systems AB.
+#
+#    Source file  =  E:\AirTone\AirToneMLL\DRIVER\CC8530\CC8530.c
+#    Command line =  
+#        E:\AirTone\AirToneMLL\DRIVER\CC8530\CC8530.c -e -Oh --debug
+#        --code_model medium --data_model medium -o
+#        E:\AirTone\AirToneMLL\Debug\Obj\ --dlib_config "F:\IAR
+#        Systems\Embedded Workbench 7.0\stm8\LIB\dlstm8mmn.h" -lcN
+#        E:\AirTone\AirToneMLL\Debug\List\ -I E:\AirTone\AirToneMLL\BSP\ -I
+#        E:\AirTone\AirToneMLL\USER\ -I E:\AirTone\AirToneMLL\DRIVER\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Memory\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\AK4637\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\CC8530\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\Serial\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\OLED\ -I
+#        E:\AirTone\AirToneMLL\DRIVER\STM8L152C6\inc\ -I
+#        E:\AirTone\AirToneMLL|DRIVER\STM8L152C6\src\ --vregs 16
+#    List file    =  E:\AirTone\AirToneMLL\Debug\List\CC8530.lst
+#    Object file  =  E:\AirTone\AirToneMLL\Debug\Obj\CC8530.o
+#
+###############################################################################
+
+E:\AirTone\AirToneMLL\DRIVER\CC8530\CC8530.c
+      1          /*******************************************************************************
+      2           * Brief:   CC8530 driver, run on STM8L15x
+      3           * Author:  taotsi
+      4           * Note:    Based on FW ??
+      5           * Update:  2017.04.15
+      6           *******************************************************************************/
+      7          
+      8          #include "CC8530.h"
+      9          
+     10          #define dummybyte   0x92    // for duplex SPI read, 0b.1001.0010
+     11          
+     12          /* Functions ------------------------------------------------------------------*/
+     13          
+     14          /* Initialization **************************************************************/
+     15          
+     16          /**
+     17            * Brief:  Initialize CC8530.
+     18            * Param:  bbh: CC8530_BBH_BL:  Bootloader SPI commands available. SPI flash
+     19            *                                programming can be performed.
+     20            *              CC8530_BBH_SYS: CC8530 starts the application in flash.
+     21            * Note:
+     22            */
+     23          void CC8530_Init(CC8530_BootBehavior_T bbh)
+     24          {
+     25              Delay_ms(3);
+     26              //CC8530_SYS_RESET();
+     27              if(bbh == CC8530_BBH_BL) // Boot reset.
+     28              {
+     29                  CC8530_BOOT_RESET();
+     30                  Delay(10);
+     31                  oPrintf(">CC unblock %X",CC8530_BL_UNLOCK_SPI());
+     32                  oPrint(">CC8530 Flash Programming");
+     33                  /*
+     34                  while(CC8530_GET_STATUS() == WAITFOR_BL_UNLOCK);
+     35                  if(CC8530_GET_STATUS() == BL_UNLOCK_SUCCEEDED)
+     36                  {
+     37                      oPrint(">CC8530 Bootloader unlock succeeded!");
+     38                  }
+     39                  else if(CC8530_GET_STATUS() == BL_UNLOCK_FAILED)
+     40                  {
+     41                      oPrint(">Error: CC8530 Bootloader unlick failed!");
+     42                  }
+     43                  */
+     44              }
+     45              else // System reset.
+     46              {
+     47                  CC8530_SYS_RESET();
+     48                  oPrint(">CC8530 Program Running");
+     49              }
+     50          }
+     51          
+     52          
+     53          
+     54          /* Basic SPI Operations ********************************************************/
+     55          
+     56          /**
+     57            *
+     58            *
+     59            */
+     60          void CC8530_SET_ADDR(uint16_t addr)
+     61          {
+     62              //uint8_t stH = 0;
+     63              //uint8_t stL = 0;
+     64              //uint16_t st = 0;
+     65          
+     66              SPI_8530_CSN_L();
+     67              //oPrintf("MISO=%d", GPIO_ReadInputDataBit(PORT_SPIBUS, PIN_SPI_MISO));
+     68              
+     69              // --------------------------------
+     70              while(GPIO_ReadInputDataBit(PORT_SPIBUS, PIN_SPI_MISO) == 0);
+     71          
+     72              //stH = SPI_ExchangeByte(addr >> 8);
+     73              //stL = SPI_ExchangeByte(addr & 0xFF);
+     74              SPI_ExchangeByte(addr >> 8);
+     75              SPI_ExchangeByte(addr & 0xFF);
+     76          
+     77              SPI_8530_CSN_H();
+     78          
+     79              //st = (stH<<8) + stL;
+     80              //return st;
+     81          }
+     82          
+     83          /**
+     84            * Brief:  Execute a specified command.
+     85            * Param:  CmdType: Command type.
+     86            * Param:  nBytes:  Number of bytes in the parameter field, can be from 0 to 255
+     87            * Param:  *param:  Command parameter field.
+     88            * RetVal: A 16-bit status word
+     89            */
+     90          void CC8530_CMD_REQ(uint8_t CmdType, uint8_t nBytes, uint8_t* param)
+     91          {
+     92              //uint8_t stH = 0;
+     93              //uint8_t stL = 0;
+     94              //uint16_t st = 0;
+     95          
+     96              uint8_t CmdTemp = CmdType | 0xC0; //[0:1][15:14] = 0b.11
+     97          
+     98              uint8_t i = 0;
+     99          
+    100              SPI_8530_CSN_L();
+    101              
+    102              // --------------------------------
+    103              while(GPIO_ReadInputDataBit(PORT_SPIBUS, PIN_SPI_MISO) == 0);
+    104          
+    105              //stH = SPI_ExchangeByte(CmdTemp);
+    106              //stL = SPI_ExchangeByte(nBytes);
+    107              SPI_ExchangeByte(CmdTemp);
+    108              SPI_ExchangeByte(nBytes);
+    109          
+    110              for(i = 0; i<nBytes; i++)
+    111              {
+    112                  SPI_ExchangeByte(*(param));
+    113                  param++;
+    114              }
+    115          
+    116              SPI_8530_CSN_H();
+    117          
+    118              //st = (stH<<8) + stL;
+    119              //return st;
+    120          }
+    121          
+    122          /**
+    123            *
+    124            * Param:  nBytes: can be from 0 to 4095
+    125            */
+    126          void CC8530_WRITE(uint16_t nBytes, uint8_t* data)
+    127          {
+    128              //uint8_t stH = 0;
+    129              //uint8_t stL = 0;
+    130              //uint16_t st = 0;
+    131          
+    132              uint8_t i = 0;
+    133          
+    134              SPI_8530_CSN_L();
+    135              
+    136              // --------------------------------
+    137              while(GPIO_ReadInputDataBit(PORT_SPIBUS, PIN_SPI_MISO) == 0);
+    138          
+    139              //stH = SPI_ExchangeByte(0x80 | (nBytes>>8)); //[0:1][15:12] = 0b.1000
+    140              //stL = SPI_ExchangeByte((uint8_t)nBytes);
+    141              SPI_ExchangeByte(0x80 | (nBytes>>8)); //[0:1][15:12] = 0b.1000
+    142              SPI_ExchangeByte((uint8_t)nBytes);
+    143          
+    144              for(i = 0; i<nBytes; i++)
+    145              {
+    146                  SPI_ExchangeByte(*(data));
+    147                  data++;
+    148              }
+    149          
+    150              SPI_8530_CSN_H();
+    151          
+    152              //st = (stH<<8) + stL;
+    153              //return st;
+    154          }
+    155          
+    156          /**
+    157            *
+    158            * Param:  nBytes: can be from 0 to 4095
+    159            */
+    160          void CC8530_READ(uint16_t nBytes, uint8_t* data)
+    161          {
+    162              //uint8_t stH = 0;
+    163              //uint8_t stL = 0;
+    164              //uint16_t st = 0;
+    165          
+    166              uint8_t i = 0;
+    167          
+    168              SPI_8530_CSN_L();
+    169              
+    170              // --------------------------------
+    171              while(GPIO_ReadInputDataBit(PORT_SPIBUS, PIN_SPI_MISO) == 0);
+    172          
+    173              //stH = SPI_ExchangeByte(0x90 | (nBytes>>8)); //[0:1][15:12] = 0b.1001
+    174              //stL = SPI_ExchangeByte((uint8_t)nBytes);
+    175              SPI_ExchangeByte(0x90 | (nBytes>>8)); //[0:1][15:12] = 0b.1001
+    176              SPI_ExchangeByte((uint8_t)nBytes);
+    177          
+    178              for(i = 0; i<nBytes; i++)
+    179              {
+    180                  *data = SPI_ExchangeByte(dummybyte);
+    181                  data++;
+    182              }
+    183          
+    184              SPI_8530_CSN_H();
+    185          
+    186              //st = (stH<<8) + stL;
+    187              //return st;
+    188          }
+    189          
+    190          /**
+    191            *
+    192            * Param:  *nBytes: this is a return value.
+    193            */
+    194          void CC8530_READBC(uint16_t *nBytes, uint8_t* data)
+    195          {
+    196              //uint8_t stH = 0;
+    197              //uint8_t stL = 0;
+    198              //uint16_t st = 0;
+    199          
+    200              uint8_t nH = 0;
+    201              uint8_t nL = 0;
+    202          
+    203              uint8_t i = 0;
+    204          
+    205              SPI_8530_CSN_L();
+    206              
+    207              // --------------------------------
+    208              while(GPIO_ReadInputDataBit(PORT_SPIBUS, PIN_SPI_MISO) == 0);
+    209          
+    210              //stH = SPI_ExchangeByte(dummybyte); //[0:1][15:12] = 0b.1010
+    211              //stL = SPI_ExchangeByte(dummybyte);
+    212              SPI_ExchangeByte(dummybyte); //[0:1][15:12] = 0b.1010
+    213              SPI_ExchangeByte(dummybyte);
+    214          
+    215              nH = SPI_ExchangeByte(dummybyte);
+    216              nL = SPI_ExchangeByte(dummybyte);
+    217              *nBytes = (nH<<8) + nL;
+    218          
+    219              for(i = 0; i<*nBytes; i++)
+    220              {
+    221                  *data = SPI_ExchangeByte(dummybyte);
+    222                  data++;
+    223              }
+    224          
+    225              SPI_8530_CSN_H();
+    226          
+    227              //st = (stH<<8) + stL;
+    228              //return st;
+    229          }
+    230          
+    231          /**
+    232            * Brief:  Use SPI only, without RSTN control.
+    233            *
+    234            */
+    235          void CC8530_SYS_RESET(void)
+    236          {
+    237              /*
+    238              SPI_8530_CSN_L();
+    239              Delay(1);
+    240          
+    241              SPI_ExchangeByte(0xBF); // 0b.1011.1111
+    242              SPI_ExchangeByte(0xFF); // 0b.1111.1111
+    243          
+    244              SPI_8530_CSN_H();
+    245              Delay(0);
+    246              SPI_8530_CSN_L();
+    247          
+    248              while(GPIO_ReadInputDataBit(PORT_SPIBUS, PIN_SPI_MISO) == 0);
+    249          
+    250              Delay(5);
+    251              SPI_8530_CSN_H();
+    252          
+    253              GPIO_ResetBits(PORT_SPIBUS, PIN_SPI_MOSI);
+    254              PORT_SPIBUS->ODR &= (uint8_t)(~PIN_SPI_MOSI);
+    255              STM8_CC8530_RSTN_L();
+    256              */
+    257          
+    258          
+    259              GPIO_SetBits(PORT_SPIBUS, PIN_SPI_MOSI);
+    260              STM8_CC8530_RSTN_L();
+    261          
+    262              SPI_8530_CSN_L();
+    263              Delay(2);
+    264              STM8_CC8530_RSTN_H();
+    265              Delay(10);
+    266          
+    267              SPI_8530_CSN_H();
+    268              Delay(2);
+    269              SPI_8530_CSN_L();
+    270          
+    271              // --------------------------------
+    272              while(GPIO_ReadInputDataBit(PORT_SPIBUS, PIN_SPI_MISO) == 0);
+    273          
+    274              Delay(5);
+    275              SPI_8530_CSN_H();
+    276          }
+    277          
+    278          /**
+    279            * Brief:  Resets CC85xx and enters the bootloader where the flash programming
+    280            *           interface is available.
+    281            * Note:   RSTN
+    282            */
+    283          void CC8530_BOOT_RESET(void)
+    284          {
+    285              /*
+    286              SPI_8530_CSN_L();
+    287              Delay(1);
+    288          
+    289              SPI_ExchangeByte(0xB0); // 0b.1011.0000
+    290              SPI_ExchangeByte(0x00); // 0b.0000.0000
+    291              //Delay(2)
+    292          
+    293              SPI_8530_CSN_H();
+    294              Delay(3);
+    295              SPI_8530_CSN_L();
+    296          
+    297              while(GPIO_ReadInputDataBit(PORT_SPIBUS, PIN_SPI_MISO) == 0);
+    298          
+    299              Delay(5);
+    300              SPI_8530_CSN_H();
+    301              */
+    302          
+    303              GPIO_ResetBits(PORT_SPIBUS, PIN_SPI_MOSI);
+    304              //PORT_SPIBUS->ODR &= (uint8_t)(~PIN_SPI_MOSI);
+    305              STM8_CC8530_RSTN_L();
+    306          
+    307              SPI_8530_CSN_L();
+    308              Delay(2);
+    309              STM8_CC8530_RSTN_H();
+    310              Delay(10);
+    311          
+    312              SPI_8530_CSN_H();
+    313              Delay(2);
+    314              SPI_8530_CSN_L();
+    315          
+    316              // --------------------------------
+    317              while(GPIO_ReadInputDataBit(PORT_SPIBUS, PIN_SPI_MISO) == 0);
+    318          
+    319              Delay(5);
+    320              SPI_8530_CSN_H();
+    321          }
+    322          
+    323          /**
+    324            *
+    325            *
+    326            */
+    327          uint16_t CC8530_GET_STATUS(void)
+    328          {
+    329              uint8_t stH = 0;
+    330              uint8_t stL = 0;
+    331              uint16_t st  = 0;
+    332          
+    333              SPI_8530_CSN_L();
+    334              
+    335              // --------------------------------
+    336              while(GPIO_ReadInputDataBit(PORT_SPIBUS, PIN_SPI_MISO) == 0);
+    337          
+    338              stH = SPI_ExchangeByte(0x80); //0b.1000.0000
+    339              stL = SPI_ExchangeByte(0x00); //0b.0000.0000
+    340          
+    341              SPI_8530_CSN_H();
+    342          
+    343              st = (stH<<8) + stL;
+    344              return st;
+    345          }
+    346          
+    347          /**
+    348            * Param:  addr: Only RAM can be written, whose address is from 0x6000 to 0x7FFF.
+    349            */
+    350          void CC8530_Write_Byte(uint16_t addr, uint8_t byte)
+    351          {
+    352              uint8_t temp = byte;
+    353              CC8530_SET_ADDR(addr);
+    354              CC8530_WRITE(1, &temp);
+    355          }
+    356          
+    357          
+    358          /**
+    359            * Param:  Only RAM can be read, whose address is from 0x6000 to 0x7FFF.
+    360            */
+    361          uint8_t CC8530_Read_Byte(uint16_t addr)
+    362          {
+    363              uint8_t byte;
+    364              CC8530_SET_ADDR(addr);
+    365              CC8530_READ(1, &byte);
+    366              return byte;
+    367          }
+    368          
+    369          
+    370          /**
+    371            * Param:  addr: Only RAM can be written, whose address is from 0x6000 to 0x7FFF.
+    372            */
+    373          void CC8530_Write_String(uint16_t addr, uint8_t *str, uint16_t nBytes)
+    374          {
+    375              CC8530_SET_ADDR(addr);
+    376              CC8530_WRITE(nBytes, str);
+    377              
+    378          }
+    379          
+    380          
+    381          /**
+    382            * Param:  Only RAM can be read, whose address is from 0x6000 to 0x7FFF.
+    383            */
+    384          void CC8530_Read_String(uint16_t addr, uint8_t *str, uint16_t nBytes)
+    385          {
+    386              CC8530_SET_ADDR(addr);
+    387              CC8530_READ(nBytes, str);
+    388          }
+    389          
+    390          
+    391          /* Boot Behaviour **************************************************************/
+    392          
+    393          /**
+    394            * Brief:  Unlock CC8530 Bootloader.
+    395            * Note:   This command is only available and only relevant after a BOOT_RESET().
+    396            * RetVal: WAITFOR_BL_UNLOCK:
+    397            *         BL_UNLOCK_SUCCEEDED:
+    398            *         BL_UNLOCK_FAILED:
+    399            */
+    400          uint16_t CC8530_BL_UNLOCK_SPI(void)
+    401          {
+    402              uint16_t status;
+    403              
+    404              uint8_t pars[4] = {0x25, 0x05, 0xB0, 0x07}; // Fixed value. Magic number
+    405              
+    406              //status = CC8530_CMD_REQ(CmdType_BL_UNLOCK_SPI, 4, pars);
+    407              //oPrintf("%X", status);
+    408              CC8530_CMD_REQ(CmdType_BL_UNLOCK_SPI, 4, pars);
+    409              
+    410              
+    411              status = CC8530_GET_STATUS();
+    412              //oPrintf("%X", status);
+    413              //while(CC8530_GET_STATUS() != 0x8020);
+    414              return status;
+    415              /*
+    416              status = CC8530_GET_STATUS();
+    417              oPrintf("%X", status);
+    418              */
+    419              /*
+    420              if(status == 0x8021)
+    421                  return WAITFOR_BL_UNLOCK;
+    422              else if(status ==0x8020)
+    423                  return BL_UNLOCK_SUCCEEDED;
+    424              else if(status == 0x0022)
+    425                  return BL_UNLOCK_FAILED;
+    426              else
+    427                  return 0;
+    428              */
+    429          }
+    430          
+    431          
+    432          
+    433          /* Flash Programming through SPI Slave *****************************************/
+    434          
+    435          /**
+    436            * Brief:  Erases all flash contents including program memory and application
+    437            *           non-volatile storage.
+    438            * Note:   This command is available only in the bootloader after unlocking has
+    439            *           been performed.
+    440            * Note:   This command shall always be executed prior to executing the
+    441            *           BL_FLASH_PAGE_PROG.
+    442            * RetVal: ME_INPROGRESS: Mass erase in progress.
+    443            *         ME_SUCCEEDED:  Mass erase completed successfully.
+    444            *         ME_FAILED:     Command failed due to incorrect KEY parameter.
+    445            */
+    446          CC8530_BL_FLASH_MASS_ERASE_Status_T CC8530_BL_FLASH_MASS_ERASE(void)
+    447          {
+    448              uint8_t pars[4] = {0x25, 0x05, 0x13, 0x37};
+    449          
+    450              uint16_t st;
+    451              
+    452              CC8530_CMD_REQ(CmdType_BL_FLASH_MASS_ERASE, 4, pars);
+    453              
+    454              do 
+    455              {
+    456                  st = CC8530_GET_STATUS();
+    457              } 
+    458              while(st == (uint16_t)ME_INPROGRESS);
+    459              //oPrintf("%X", st);
+    460              
+    461              if(st == (uint16_t)ME_SUCCEEDED)
+    462                  return ME_SUCCEEDED;
+    463              else if(st == (uint16_t)ME_FAILED)
+    464                  return ME_FAILED;
+    465              else
+    466                  return Error;
+    467          }
+    468          
+    469          
+    470          /**
+    471            * Brief:  Programs a single 1 kB flash page using the data which has been
+    472            *           written to the given RAM location.
+    473            * Note:   This command is available only in the bootloader after unlocking
+    474            *           has been performed.
+    475            * Note:   This command should only be performed on flash pages not programmed
+    476            *           after the last successful BL_FLASH_MASS_ERASE command.
+    477            * RetVal: PROG_INPROGRESS: Programming in progress.
+    478            *         PROG_SUCCEEDED:  Programming completed successfully.
+    479            *         PROG_FAILED:     Command failed due to incorrect KEY parameter.
+    480            */
+    481          uint16_t CC8530_BL_FLASH_PAGE_PROG(uint16_t addr_ram, uint16_t addr_flash)
+    482          {
+    483              uint8_t pars[10] = {0x00, 0x00, 0x00, 0x00,
+    484                                  0x01, 0x00,               // Fixed value. 1 KB page size
+    485                                  0x25, 0x05, 0x13, 0x37};  // Fixed value. Magic number
+    486          
+    487              pars[0] = (uint8_t)(addr_ram >> 8);
+    488              pars[1] = (uint8_t)addr_ram;
+    489              pars[2] = (uint8_t)(addr_flash>>8);
+    490              pars[3] = (uint8_t)addr_flash;
+    491          
+    492              uint16_t st;
+    493              CC8530_CMD_REQ(CmdType_BL_FLASH_PAGE_PROG, 10, pars);
+    494              
+    495              st = CC8530_GET_STATUS();
+    496              //oPrintf("%X", st);
+    497          
+    498              return st;
+    499          }
+    500          
+    501          
+    502          /**
+    503            * Brief:  Verifies that the flash programming succeeded by calculating a CRC32
+    504            *           checksum over the entire image, and comparing it against the expected
+    505            *           checksum value.
+    506            * Param:  nImageBytes:  Can be found in the Intel HEX file at address 0x801C
+    507            *                         as a 32-bit value.
+    508            * RetVal: VERIF_INPROGRESS: Verification in progress.
+    509            *         VERIF_SUCCEEDED:  Verification completed successfully (the image is intact).
+    510            *         VERIF_FAILED:     Command failed due to checksum mismatch.
+    511            * Note:   Actually the CRC32 value calculated can be read out. It won't be done in
+    512            *           this function, for now.
+    513            */
+    514          void CC8530_BL_FLASH_VERIFY(uint32_t nImageBytes, uint8_t CRC32[4])
+    515          {
+    516              uint8_t pars[8] = {0x00, 0x00, 0x80, 0x00,  // Fixed value. Data address.
+    517                                 0x00, 0x00, 0x00, 0x00};
+    518              pars[4] = (uint8_t)(nImageBytes >> 24);
+    519              pars[5] = (uint8_t)(nImageBytes >> 16);
+    520              pars[6] = (uint8_t)(nImageBytes >> 8);
+    521              pars[7] = (uint8_t)nImageBytes;
+    522          
+    523              CC8530_CMD_REQ(CmdType_BL_FLASH_VERIFY, 8, pars);
+    524              
+    525              CC8530_READ(4, CRC32);
+    526          }
+    527          
+    528          
+    529          /* EHIF Command Set ************************************************************/
+    530          /* EHIF.Device Information Commands */
+    531          
+    532          /**
+    533            * Brief:  Returns hardware/firmware information.
+    534            * Param:  info[24]: See user guide pdf in page 104.
+    535            * Note:   Available even on un-programmed devices.
+    536            *         Available in all operational modes.
+    537            */
+    538          void CC8530_DI_GET_CHIP_INFO(uint8_t info[24])
+    539          {
+    540              uint8_t pars[2] = {0x00, 0xB0}; // Fixed number.
+    541              CC8530_CMD_REQ(CmdType_DI_GET_CHIP_INFO, 2, pars);
+    542          
+    543              CC8530_READ(24, info);
+    544          }
+    545          
+    546          
+    547          /**
+    548            * Brief:  Returns unique device ID and manufacturer-specific information.
+    549            * Param:  info[12]: See user guide pdf in page 104.
+    550            * Note:   Available in all operational modes.
+    551            */
+    552          void CC8530_DI_GET_DEVICE_INFO(uint8_t info[12])
+    553          {
+    554              CC8530_CMD_REQ(CmdType_DI_GET_DEVICE_INFO, 0, 0x00);
+    555          
+    556              CC8530_READ(12, info);
+    557          }
+    558          
+    559          
+    560          
+    561          /* EHIF Command Set ************************************************************/
+    562          /* EHIF.Control Commands */
+    563          
+    564          /**
+    565            * Brief:  Configures the EHIF interrupt pin event mask.
+    566            * Param:  pol:   Determines polarity of interrupt pin:
+    567            *                  EHIF_IRQ_ActiveLow:
+    568            *                  EHIF_IRQ_ActiveHigh:
+    569            * Param:  mask:  MSK_DSC_RX_AVAIL:
+    570            *                MSK_DSC_TX_AVAIL:
+    571            *                MSK_DSC_RESET:
+    572            *                MSK_SPI_ERROR:
+    573            *                MSK_VOL_CHG:
+    574            *                MSK_PS_CHG:
+    575            *                MSK_NWK_CHG:
+    576            *                MSK_SR_CHG:
+    577            * Note:   The mask setting takes effect immediately so executing this command
+    578            *           may cause an immediate interrupt.
+    579            */
+    580          void CC8530_EHC_EVT_MASK(CC8530_EHIF_IRQ_POL_T pol, CC8530_EHC_EVT_MASK_T mask)
+    581          {
+    582              uint8_t pars[2] = {(uint8_t)pol, (uint8_t)mask};
+    583              CC8530_CMD_REQ(CmdType_EHC_EVT_MASK, 2, pars);
+    584          }
+    585          
+    586          
+    587          /**
+    588            * Brief:  Clear EHIF event flags.
+    589            * Param:  evt:  MSK_DSC_RESET:
+    590            *               MSK_SPI_ERROR:
+    591            *               MSK_VOL_CHG:
+    592            *               MSK_PS_CHG:
+    593            *               MSK_NWK_CHG:
+    594            *               MSK_SR_CHG:
+    595            * Note:   The flag clearing takes effect before the CMDREQ_RDY flag is asserted
+    596            *           so host controller interrupt can safely be re-enabled at that point
+    597            *           in time.
+    598            */
+    599          void CC8530_EHC_EVT_CLR(CC8530_EHC_EVT_CLR_T evt)
+    600          {
+    601              uint8_t par = (uint8_t)evt;
+    602              CC8530_CMD_REQ(CmdType_EHC_EVT_CLR, 1, &par);
+    603          }
+    604          
+    605          
+    606          
+    607          /* EHIF Command Set ************************************************************/
+    608          /* EHIF.Audio Network Control and Status Conmmands */
+    609          
+    610          /**
+    611            * Brief:  Used by protocol slaves to perform a scan of the whole 2.4 GHz band for
+    612            *           PurePath Wireless networks within range matching filtering criteria,
+    613            *           and returns a list of those found.
+    614            * Param:  scan_max:      Maximum number of networks to locate before ending scan.
+    615            *                        Range [1,8].
+    616            * Param:  scan_timeout:  Timeout of scan operation in increments of 10 ms.
+    617            * Param:  manf_id:       Manufacturer ID filtering criteria.
+    618            *                        A value of 0 lists all networks regardless of manufacturer
+    619            *                          ID, any other value lists only networks with a matching
+    620            *                          manufacturer ID.
+    621            * Param:  prod_id_mask:  Product/family ID mask and reference value to be used as
+    622            *                          filtering criteria. Only networks with
+    623            *                            PROD_ID&PROD_ID_MASK == PROD_ID_REF&PROD_ID_MASK
+    624            *                          will be listed. Thus a PROD_ID_MASK value of 0 will
+    625            *                          disable filtering based on product ID.
+    626            * Param:  prod_id_ref:   See above.
+    627            * Param:  req:           Require that the protocol master is signaling that it is
+    628            *                          attempting to pair with a new slave.
+    629            *                        Can be:
+    630            *                          REQ_Enable
+    631            *                          REQ_Disable
+    632            * Param:  rssi:          Required RSSI minimum value of the first received master
+    633            *                          packet when acquiring network during scan operation
+    634            *                          (signed 2‟s complement, 0 → ~0 dBm). Set to -128 dBm to
+    635            *                          disable the criteria.
+    636            *                        Can be:
+    637            *                          RSSI_m0dB
+    638            *                          RSSI_m1dB
+    639            *                          RSSI_m2dB
+    640            *                          RSSI_m4dB
+    641            *                          RSSI_m8dB
+    642            *                          RSSI_m16dB
+    643            *                          RSSI_m32dB
+    644            *                          RSSI_m64dB
+    645            *                          RSSI_m128dB
+    646            * Param:  list:          See user guide pdf P106.
+    647            * RetVal:                The result of network scanning:
+    648            *                          NWM_FOUND
+    649            *                          NWM_NOT_FOUND
+    650            * Note:   Only available in host-controlled protocol slaves.
+    651            * Note:   Depending on the number of networks found, the number of returned
+    652            *           bytes will be N * 28, where N is between 0 and scan_max.
+    653            * 注：这里仅仅把list数据读回来，不进行分析。以后另外建个函数来分析这些数据。
+    654            */
+    655          CC8530_NWM_SCAN_RESULT_T CC8530_NWM_DO_SCAN(CC8530_SCAN_MAX_T scan_max,
+    656                                                      uint16_t scan_timeout,
+    657                                                      uint32_t manf_id,
+    658                                                      uint32_t prod_id_mask,
+    659                                                      uint32_t prod_id_ref,
+    660                                                      CC8530_REQ_WPM_PAIR_SIGNAL_T req,
+    661                                                      CC8530_REQ_RSSI_T rssi,
+    662                                                      uint8_t list[][28])
+    663          {
+    664              uint8_t pars[16];
+    665          
+    666              pars[0] = (((uint8_t)scan_max)<<5) | (scan_timeout>>8);
+    667          
+    668              pars[1] = (uint8_t)scan_timeout;
+    669          
+    670              pars[2] = (uint8_t)(manf_id>>24);
+    671              pars[3] = (uint8_t)(manf_id>>16);
+    672              pars[4] = (uint8_t)(manf_id>>8);
+    673              pars[5] = (uint8_t) manf_id;
+    674          
+    675              pars[6] = (uint8_t)(prod_id_mask>>24);
+    676              pars[7] = (uint8_t)(prod_id_mask>>16);
+    677              pars[8] = (uint8_t)(prod_id_mask>>8);
+    678              pars[9] = (uint8_t) prod_id_mask;
+    679          
+    680              pars[10] = (uint8_t)(prod_id_ref>>24);
+    681              pars[11] = (uint8_t)(prod_id_ref>>16);
+    682              pars[12] = (uint8_t)(prod_id_ref>>8);
+    683              pars[13] = (uint8_t) prod_id_ref;
+    684          
+    685              pars[14] = 0x00; // Fixed value.
+    686          
+    687              pars[15] = (uint8_t)rssi;
+    688          
+    689              CC8530_CMD_REQ(CmdType_NWM_DO_SCAN, 16, pars);
+    690          
+    691          
+    692              uint16_t nBytes = 0;
+    693              CC8530_READBC(&nBytes, list[0]);
+    694          
+    695              if(nBytes == 0)
+    696                  return NWM_NOT_FOUND;
+    697              else
+    698                  return NWM_FOUND;
+    699          }
+    700          
+    701          
+    702          /**
+    703            * Brief: Used by protocol slaves to join a specific PurePath Wireless network
+    704            *          or the first found that matches the specified criteria.
+    705            *        The command is also used to leave a network.
+    706            * Param:  join_timeout:  Timeout in increments of 10 ms for joining network.
+    707            *         device_id:     Network ID of network to join (device ID of master).
+    708            *                        A value of 0x00000000 means leave network if currently
+    709            *                          connected.
+    710            *                        A value of 0xFFFFFFFF means join any network where
+    711            *                          master is currently attempting to pair with a new slave
+    712            * Param:  manf_id:       Manufacturer ID filtering criteria.
+    713            *                        A value of 0 lists all networks regardless of manufacturer
+    714            *                          ID, any other value lists only networks with a matching
+    715            *                          manufacturer ID.
+    716            * Param:  prod_id_mask:  Product/family ID mask and reference value to be used as
+    717            *                          filtering criteria. Only networks with
+    718            *                            PROD_ID&PROD_ID_MASK == PROD_ID_REF&PROD_ID_MASK
+    719            *                          will be listed. Thus a PROD_ID_MASK value of 0 will
+    720            *                          disable filtering based on product ID.
+    721            * Param:  prod_id_ref:   See above.
+    722            * Note:   EVT_NWK_CHG – will be signaled when a network connection is lost – or if
+    723            *           this DO_JOIN command fails.
+    724            * Note:   Only available on host-controlled protocol slaves.
+    725            * Note:   The host controller should use NWM_GET_STATUS to determine the outcome of
+    726            *           the command and to store the network ID for future pairing operations
+    727            *           if required.
+    728            * Note:   The command will use ~500 ms to scan the entire RF channel space once.
+    729            *         Using a JOIN_TO value below 50 (= 500 ms) is not recommended.
+    730            */
+    731          void CC8530_NWM_DO_JOIN(uint16_t join_timeout, uint32_t device_id, uint32_t manf_id,
+    732                                  uint32_t prod_id_mask, uint32_t prod_id_ref)
+    733          {
+    734              uint8_t pars[18];
+    735          
+    736              pars[0] = (uint8_t)(join_timeout>>8);
+    737              pars[1] = (uint8_t) join_timeout;
+    738          
+    739              pars[2] = (uint8_t)(device_id>>24);
+    740              pars[3] = (uint8_t)(device_id>>16);
+    741              pars[4] = (uint8_t)(device_id>>8);
+    742              pars[5] = (uint8_t) device_id;
+    743          
+    744              pars[6] = (uint8_t)(manf_id>>24);
+    745              pars[7] = (uint8_t)(manf_id>>16);
+    746              pars[8] = (uint8_t)(manf_id>>8);
+    747              pars[9] = (uint8_t) manf_id;
+    748          
+    749              pars[10] = (uint8_t)(prod_id_mask>>24);
+    750              pars[11] = (uint8_t)(prod_id_mask>>16);
+    751              pars[12] = (uint8_t)(prod_id_mask>>8);
+    752              pars[13] = (uint8_t) prod_id_mask;
+    753          
+    754              pars[14] = (uint8_t)(prod_id_ref>>24);
+    755              pars[15] = (uint8_t)(prod_id_ref>>16);
+    756              pars[16] = (uint8_t)(prod_id_ref>>8);
+    757              pars[17] = (uint8_t) prod_id_ref;
+    758          
+    759              CC8530_CMD_REQ(CmdType_NWM_DO_JOIN, 18, pars);
+    760          }
+    761          
+    762          /**
+    763            * 注：该函数不对状态值进行分析，以后再想办法分析。
+    764            */
+    765          void CC8530_NWM__GET_STATUS(uint8_t *status)
+    766          {
+    767              CC8530_CMD_REQ(CmdType_NWM_GET_STATUS, 0, 0x00);
+    768          
+    769              uint16_t nBytes = 0;
+    770              CC8530_READBC(&nBytes, status);
+    771          
+    772              // 待续...
+    773          }
+    774          
+    775          
+    776          /* EHIF Command Set ************************************************************/
+    777          /* EHIF.Remote Control Commands */
+    778          
+    779          
+    780          
+    781          /* EHIF Command Set ************************************************************/
+    782          /* EHIF.Data Side-Channel Commands */
+    783          
+    784          
+    785          
+    786          /* EHIF Command Set ************************************************************/
+    787          /* EHIF.Power Management Commands */
+    788          
+    789          
+    790          
+    791          /* EHIF Command Set ************************************************************/
+    792          /* EHIF.Volume Control Commands */
+    793          
+    794          
+    795          
+    796          /* EHIF Command Set ************************************************************/
+    797          /* EHIF.RF and Audio Statistics Commands */
+    798          
+    799          
+    800          
+    801          /* EHIF Command Set ************************************************************/
+    802          /* EHIF.Calibration Commands */
+    803          
+    804          
+    805          
+    806          /* EHIF Command Set ************************************************************/
+    807          /* EHIF.Utility Commands */
+    808          
+    809          
+    810          
+    811          /* EHIF Command Set ************************************************************/
+    812          /* EHIF.RF Test Commands */
+    813          
+    814          
+    815          
+    816          /* EHIF Command Set ************************************************************/
+    817          /* EHIF.AUdio Test Commands */
+    818          
+    819          
+    820          
+    821          /* EHIF Command Set ************************************************************/
+    822          /* EHIF.IO Test Commands */
+    823          
+    824          
+    825          
+    826          
+    827          
+    828          /* ----------------------------- End of file --------------------------------- */
+    829          /*******************************************************************************/
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       2  ??Subroutine14_0
+       7  ??Subroutine15_0
+       9  ??Subroutine16_0
+      39  ?Subroutine0
+      18  ?Subroutine1
+      10  ?Subroutine10
+       6  ?Subroutine11
+      17  ?Subroutine12
+      10  ?Subroutine13
+      10  ?Subroutine2
+       8  ?Subroutine3
+       4  ?Subroutine4
+      11  ?Subroutine5
+       7  ?Subroutine6
+      12  ?Subroutine7
+       6  ?Subroutine8
+       7  ?Subroutine9
+      15  ?_0
+      26  ?_1
+      24  ?_2
+       4  ?_3
+       4  ?_4
+      10  ?_5
+       8  ?_6
+       2  ?_7
+      72  CC8530_BL_FLASH_MASS_ERASE
+      61  CC8530_BL_FLASH_PAGE_PROG
+      76  CC8530_BL_FLASH_VERIFY
+      28  CC8530_BL_UNLOCK_SPI
+      76  CC8530_BOOT_RESET
+      66  CC8530_CMD_REQ
+      47  CC8530_DI_GET_CHIP_INFO
+      26  CC8530_DI_GET_DEVICE_INFO
+      19  CC8530_EHC_EVT_CLR
+      41  CC8530_EHC_EVT_MASK
+      21  CC8530_GET_STATUS
+      93  CC8530_Init
+     159  CC8530_NWM_DO_JOIN
+     179  CC8530_NWM_DO_SCAN
+      35  CC8530_NWM__GET_STATUS
+      53  CC8530_READ
+      96  CC8530_READBC
+      42  CC8530_Read_Byte
+      16  CC8530_Read_String
+      29  CC8530_SET_ADDR
+      76  CC8530_SYS_RESET
+      53  CC8530_WRITE
+      50  CC8530_Write_Byte
+      16  CC8530_Write_String
+
+ 
+ 1 613 bytes in section .far_func.text
+    93 bytes in section .near.rodata
+ 
+ 1 613 bytes of CODE  memory
+    93 bytes of CONST memory
+
+Errors: none
+Warnings: none
